@@ -9,6 +9,8 @@ import TraderAvatar from "@/components/ui/TraderAvatar";
 import RiskMeter from "@/components/ui/RiskMeter";
 import Sparkline from "@/components/charts/Sparkline";
 import { ButtonLink } from "@/components/ui/Button";
+import CountUp from "@/components/motion/CountUp";
+import Auroras from "@/components/motion/Auroras";
 
 function timeAgo(ts: number) {
   const s = Math.floor((Date.now() - ts) / 1000);
@@ -50,7 +52,11 @@ export default function Portfolio() {
   const totalPnl = positions.reduce((s, p) => s + p.pnl, 0);
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-10 lg:px-8">
+    <div className="relative">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] overflow-hidden" aria-hidden="true">
+        <Auroras dim />
+      </div>
+      <div className="relative mx-auto max-w-6xl px-5 py-10 lg:px-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm text-ink-3">
@@ -67,13 +73,17 @@ export default function Portfolio() {
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
-        <div className="panel p-6">
+        <div className="panel glow-ring p-6">
           <div className="text-[11px] uppercase tracking-wide text-ink-3">Total value</div>
-          <div className="tnum mt-1.5 font-display text-3xl font-semibold text-ink">{fmtMoney(total, 2)}</div>
+          <div className="tnum mt-1.5 font-display text-3xl font-semibold text-ink">
+            <CountUp value={total} format="money" duration={1200} />
+          </div>
         </div>
         <div className="panel p-6">
           <div className="text-[11px] uppercase tracking-wide text-ink-3">Available cash</div>
-          <div className="tnum mt-1.5 font-display text-3xl font-semibold text-ink">{fmtMoney(state.cash, 2)}</div>
+          <div className="tnum mt-1.5 font-display text-3xl font-semibold text-ink">
+            <CountUp value={state.cash} format="money" duration={1200} />
+          </div>
         </div>
         <div className="panel p-6">
           <div className="text-[11px] uppercase tracking-wide text-ink-3">Copy P&L</div>
@@ -100,11 +110,15 @@ export default function Portfolio() {
         </div>
       ) : (
         <div className="mt-4 space-y-4">
-          {positions.map(({ rel, t, value, pnl, pnlPct }) => {
+          {positions.map(({ rel, t, value, pnl, pnlPct }, i) => {
             const s = traderStats(t);
             const eq = equitySeries(t).filter((_, i) => i % 2 === 0).slice(-40);
             return (
-              <div key={rel.slug} className="panel flex flex-col gap-5 p-6 lg:flex-row lg:items-center lg:justify-between">
+              <div
+                key={rel.slug}
+                className="panel panel-hover row-in flex flex-col gap-5 p-6 lg:flex-row lg:items-center lg:justify-between"
+                style={{ animationDelay: `${i * 0.12}s` }}
+              >
                 <Link href={`/traders/${rel.slug}`} className="flex items-center gap-4">
                   <TraderAvatar name={t.name} />
                   <div>
@@ -165,6 +179,7 @@ export default function Portfolio() {
         Practice mode simulates copy performance from each trader&apos;s recent pace; figures refresh daily
         and are illustrative only.
       </p>
+      </div>
     </div>
   );
 }

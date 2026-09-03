@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import Navbar from "@/components/site/Navbar";
 import Footer from "@/components/site/Footer";
 import { ButtonLink } from "@/components/ui/Button";
+import Auroras from "@/components/motion/Auroras";
 import { ARTICLES, getArticle } from "@/lib/articles";
 
 export function generateStaticParams() {
@@ -26,8 +27,9 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
   return (
     <>
       <Navbar />
-      <main className="pt-[72px]">
-        <article className="mx-auto max-w-3xl px-5 py-14">
+      <main className="relative overflow-hidden pt-[72px]">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[380px]" aria-hidden="true"><Auroras dim /></div>
+        <article className="relative mx-auto max-w-3xl px-5 py-14">
           <Link href="/learn" className="text-sm text-ink-3 transition-colors hover:text-ink">
             ← Academy
           </Link>

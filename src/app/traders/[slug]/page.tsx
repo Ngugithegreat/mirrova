@@ -9,6 +9,8 @@ import EquityChart from "@/components/charts/EquityChart";
 import MonthlyHeatmap from "@/components/charts/MonthlyHeatmap";
 import AllocationBars from "@/components/charts/AllocationBars";
 import CopyPanel from "@/components/traders/CopyPanel";
+import Auroras from "@/components/motion/Auroras";
+import Reveal from "@/components/ui/Reveal";
 import { TRADERS, getTrader, traderStats, equitySeries } from "@/lib/traders";
 import { recentTrades } from "@/lib/trades";
 import { fmtPct, fmtCount, fmtCompact } from "@/lib/format";
@@ -50,8 +52,9 @@ export default async function TraderPage({ params }: { params: Promise<{ slug: s
     <>
       <Navbar />
       <main className="pt-[72px]">
-        <div className="border-b border-line-soft bg-surface/40">
-          <div className="mx-auto max-w-7xl px-5 py-10 lg:px-8">
+        <div className="relative overflow-hidden border-b border-line-soft bg-surface/40">
+          <Auroras />
+          <div className="relative mx-auto max-w-7xl px-5 py-10 lg:px-8">
             <Link href="/traders" className="text-sm text-ink-3 transition-colors hover:text-ink">
               ← All traders
             </Link>
@@ -105,7 +108,7 @@ export default async function TraderPage({ params }: { params: Promise<{ slug: s
 
         <div className="mx-auto grid max-w-7xl gap-8 px-5 py-10 lg:grid-cols-[1fr_360px] lg:px-8">
           <div className="min-w-0 space-y-8">
-            <section className="panel p-6">
+            <section className="panel glow-ring p-6">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="font-display text-lg font-semibold">Growth of $100 — last 24 months</h2>
                 <span className={`tnum text-sm font-semibold ${s.return24m >= 0 ? "text-pos" : "text-neg"}`}>{fmtPct(s.return24m)}</span>
@@ -126,12 +129,12 @@ export default async function TraderPage({ params }: { params: Promise<{ slug: s
               </div>
             </section>
 
-            <section className="panel p-6">
+            <Reveal as="section" className="panel p-6">
               <h2 className="font-display mb-4 text-lg font-semibold">Monthly returns</h2>
               <MonthlyHeatmap returns={t.monthlyReturns} />
-            </section>
+            </Reveal>
 
-            <section className="panel p-6">
+            <Reveal as="section" className="panel p-6">
               <h2 className="font-display mb-4 text-lg font-semibold">Recent closed trades</h2>
               <div className="scroll-x">
                 <table className="w-full min-w-[560px] text-left text-sm">
@@ -163,9 +166,9 @@ export default async function TraderPage({ params }: { params: Promise<{ slug: s
                   </tbody>
                 </table>
               </div>
-            </section>
+            </Reveal>
 
-            <section className="panel p-6">
+            <Reveal as="section" className="panel p-6">
               <h2 className="font-display mb-3 text-lg font-semibold">About this strategy</h2>
               <p className="leading-relaxed text-ink-2">{t.bio}</p>
               <div className="mt-4 flex flex-wrap gap-2">
@@ -179,7 +182,7 @@ export default async function TraderPage({ params }: { params: Promise<{ slug: s
                   {t.trades.toLocaleString()} lifetime trades
                 </span>
               </div>
-            </section>
+            </Reveal>
           </div>
 
           <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">

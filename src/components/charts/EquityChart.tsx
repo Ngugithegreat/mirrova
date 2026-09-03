@@ -92,8 +92,10 @@ export default function EquityChart({ data, height = 320 }: Props) {
           );
         })}
 
-        <path d={area} fill="url(#eq-fill)" />
-        <path d={path} fill="none" stroke="var(--color-mint)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={area} fill="url(#eq-fill)" className="fade-in-late" />
+        <path d={path} fill="none" stroke="var(--color-mint)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" pathLength={1} className="draw-line" />
+        <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="5" fill="var(--color-mint)" className="pulse-dot" style={{ animationDelay: "2.4s" }} />
+        <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="3.5" fill="var(--color-mint)" stroke="var(--color-bg)" strokeWidth="1.5" className="fade-in-late" />
 
         {h && (
           <g>

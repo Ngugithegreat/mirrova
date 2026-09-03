@@ -3,6 +3,7 @@ import Navbar from "@/components/site/Navbar";
 import Footer from "@/components/site/Footer";
 import { ButtonLink } from "@/components/ui/Button";
 import Reveal from "@/components/ui/Reveal";
+import Auroras from "@/components/motion/Auroras";
 import { fmtMoney } from "@/lib/format";
 
 export const metadata: Metadata = {
@@ -43,9 +44,10 @@ export default function HowItWorksPage() {
     <>
       <Navbar />
       <main className="pt-[72px]">
-        <div className="border-b border-line-soft bg-surface/40">
-          <div className="mx-auto max-w-7xl px-5 py-14 lg:px-8">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-mint">The mechanics</p>
+        <div className="relative overflow-hidden border-b border-line-soft bg-surface/40">
+          <Auroras />
+          <div className="relative mx-auto max-w-7xl px-5 py-14 lg:px-8">
+            <p className="eyebrow">The mechanics</p>
             <h1 className="font-display mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">How copy trading works on Mirrova</h1>
             <p className="mt-4 max-w-2xl text-lg text-ink-2">
               End to end, with the details other platforms gloss over. Five minutes to read; a lifetime of

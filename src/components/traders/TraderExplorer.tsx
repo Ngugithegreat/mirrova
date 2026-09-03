@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { TRADERS, traderStats, RiskStyle } from "@/lib/traders";
 import TraderCard from "@/components/ui/TraderCard";
+import Reveal from "@/components/ui/Reveal";
 import { cx } from "@/lib/format";
 
 type SortKey = "copiers" | "return12m" | "returnYtd" | "drawdown" | "aum";
@@ -115,8 +116,10 @@ export default function TraderExplorer() {
       </p>
 
       <div className="mt-4 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        {results.map((x) => (
-          <TraderCard key={x.t.slug} trader={x.t} />
+        {results.map((x, i) => (
+          <Reveal key={x.t.slug} delay={(i % 3) * 80}>
+            <TraderCard trader={x.t} />
+          </Reveal>
         ))}
       </div>
 

@@ -30,7 +30,7 @@ export default function Sparkline({ data, width = 132, height = 44, id, positive
         </linearGradient>
       </defs>
       <path d={area} fill={`url(#${gid})`} />
-      <path d={path} fill="none" stroke={stroke} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={path} fill="none" stroke={stroke} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" pathLength={1} className="spark-path" />
     </svg>
   );
 }

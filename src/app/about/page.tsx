@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Navbar from "@/components/site/Navbar";
 import Footer from "@/components/site/Footer";
 import Reveal from "@/components/ui/Reveal";
+import Auroras from "@/components/motion/Auroras";
 import { ButtonLink } from "@/components/ui/Button";
 import { PLATFORM_STATS } from "@/lib/traders";
 import { fmtCompact, fmtCount } from "@/lib/format";
@@ -36,9 +37,10 @@ export default function AboutPage() {
     <>
       <Navbar />
       <main className="pt-[72px]">
-        <div className="border-b border-line-soft bg-surface/40">
-          <div className="mx-auto max-w-7xl px-5 py-16 lg:px-8">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-mint">About Mirrova</p>
+        <div className="relative overflow-hidden border-b border-line-soft bg-surface/40">
+          <Auroras />
+          <div className="relative mx-auto max-w-7xl px-5 py-16 lg:px-8">
+            <p className="eyebrow">About Mirrova</p>
             <h1 className="font-display mt-3 max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl sm:leading-[1.1]">
               Skill shouldn&apos;t be gated by who you know
             </h1>

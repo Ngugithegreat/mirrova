@@ -3,6 +3,7 @@ import Navbar from "@/components/site/Navbar";
 import Footer from "@/components/site/Footer";
 import { ButtonLink } from "@/components/ui/Button";
 import Reveal from "@/components/ui/Reveal";
+import Auroras from "@/components/motion/Auroras";
 
 export const metadata: Metadata = {
   title: "Pricing & fees",
@@ -45,9 +46,10 @@ export default function PricingPage() {
     <>
       <Navbar />
       <main className="pt-[72px]">
-        <div className="border-b border-line-soft bg-surface/40">
-          <div className="mx-auto max-w-7xl px-5 py-14 lg:px-8">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-mint">Pricing</p>
+        <div className="relative overflow-hidden border-b border-line-soft bg-surface/40">
+          <Auroras />
+          <div className="relative mx-auto max-w-7xl px-5 py-14 lg:px-8">
+            <p className="eyebrow">Pricing</p>
             <h1 className="font-display mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
               Simple, aligned, no surprises
             </h1>

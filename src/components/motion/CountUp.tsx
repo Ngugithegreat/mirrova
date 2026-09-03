@@ -10,7 +10,7 @@ export default function CountUp({
   className,
 }: {
   value: number;
-  format?: "money-compact" | "count" | "plain";
+  format?: "money-compact" | "money" | "count" | "plain";
   duration?: number;
   className?: string;
 }) {
@@ -52,6 +52,8 @@ export default function CountUp({
       : display >= 1e6 ? `$${(display / 1e6).toFixed(1)}M`
       : display >= 1e3 ? `$${(display / 1e3).toFixed(0)}K`
       : `$${display.toFixed(0)}`;
+  } else if (format === "money") {
+    text = display.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
   } else if (format === "count") {
     text =
       display >= 1e6 ? `${(display / 1e6).toFixed(1)}M`

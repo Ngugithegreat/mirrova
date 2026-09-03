@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Navbar from "@/components/site/Navbar";
 import Footer from "@/components/site/Footer";
+import Auroras from "@/components/motion/Auroras";
+import Reveal from "@/components/ui/Reveal";
 import { ARTICLES } from "@/lib/articles";
 
 export const metadata: Metadata = {
@@ -21,9 +23,10 @@ export default function LearnPage() {
     <>
       <Navbar />
       <main className="pt-[72px]">
-        <div className="border-b border-line-soft bg-surface/40">
-          <div className="mx-auto max-w-7xl px-5 py-14 lg:px-8">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-mint">Academy</p>
+        <div className="relative overflow-hidden border-b border-line-soft bg-surface/40">
+          <Auroras />
+          <div className="relative mx-auto max-w-7xl px-5 py-14 lg:px-8">
+            <p className="eyebrow">Academy</p>
             <h1 className="font-display mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
               Learn copy trading properly
             </h1>
@@ -36,8 +39,9 @@ export default function LearnPage() {
 
         <div className="mx-auto max-w-7xl px-5 py-12 lg:px-8">
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {ARTICLES.map((a) => (
-              <Link key={a.slug} href={`/learn/${a.slug}`} className="panel panel-hover group flex h-full flex-col p-7">
+            {ARTICLES.map((a, i) => (
+              <Reveal key={a.slug} delay={(i % 3) * 100} className="h-full">
+              <Link href={`/learn/${a.slug}`} className="panel panel-hover group flex h-full flex-col p-7">
                 <div className="flex items-center gap-2.5">
                   <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${LEVEL_TONE[a.level]}`}>
                     {a.level}
@@ -50,6 +54,7 @@ export default function LearnPage() {
                 <p className="mt-3 flex-1 text-sm leading-relaxed text-ink-2">{a.teaser}</p>
                 <span className="mt-5 text-sm font-medium text-mint">Read guide →</span>
               </Link>
+              </Reveal>
             ))}
           </div>
         </div>

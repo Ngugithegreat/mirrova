@@ -3,6 +3,7 @@ import Footer from "@/components/site/Footer";
 import MarketsTicker from "@/components/site/MarketsTicker";
 import Hero from "@/components/landing/Hero";
 import TraderMarquee from "@/components/landing/TraderMarquee";
+import PhoneSection from "@/components/landing/PhoneSection";
 import StatsStrip from "@/components/landing/StatsStrip";
 import HowItWorks from "@/components/landing/HowItWorks";
 import TopTradersSection from "@/components/landing/TopTradersSection";
@@ -23,6 +24,7 @@ export default function Home() {
         <TraderMarquee />
         <StatsStrip />
         <HowItWorks />
+        <PhoneSection />
         <TopTradersSection />
         <Features />
         <Protection />
