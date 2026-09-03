@@ -26,9 +26,13 @@ const IVORY_3 = "text-[#8b877b]";
 export default function Protection() {
   return (
     <section className="band-ink" id="security">
-      <div className="mx-auto grid max-w-[1200px] items-start gap-16 px-5 py-20 lg:grid-cols-2 lg:px-8 lg:py-28">
+      <div aria-hidden="true">
+        <div className="aurora aurora-2 -top-24 right-[10%] h-[340px] w-[420px] !opacity-30" />
+        <div className="aurora aurora-1 bottom-0 left-[5%] h-[300px] w-[300px] !opacity-25" />
+      </div>
+      <div className="relative mx-auto grid max-w-[1200px] items-start gap-16 px-5 py-20 lg:grid-cols-2 lg:px-8 lg:py-28">
         <Reveal>
-          <p className="eyebrow !text-[#7fc9a4]">Protection first</p>
+          <p className="eyebrow !text-mint">Protection first</p>
           <h2 className={`font-display mt-4 text-3xl font-semibold tracking-tight sm:text-[2.75rem] sm:leading-[1.1] ${IVORY}`}>
             Your capital, defended on every layer
           </h2>
@@ -49,7 +53,7 @@ export default function Protection() {
 
         <Reveal delay={120}>
           <div className="border border-[#f2efe6]/20 p-8">
-            <p className="eyebrow !text-[#7fc9a4]">Worked example</p>
+            <p className="eyebrow !text-mint">Worked example</p>
             <h3 className={`font-display mt-3 text-2xl font-semibold ${IVORY}`}>
               A $2,000 copy with a 15% stop-loss
             </h3>

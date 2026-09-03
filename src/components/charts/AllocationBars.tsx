@@ -7,7 +7,7 @@ export default function AllocationBars({ allocation }: { allocation: { label: st
         {allocation.map((a, i) => (
           <div
             key={a.label}
-            style={{ width: `${a.pct}%`, background: a.label === "Cash" ? "rgba(22,21,15,0.22)" : SERIES[i % SERIES.length] }}
+            style={{ width: `${a.pct}%`, background: a.label === "Cash" ? "rgba(159,163,189,0.35)" : SERIES[i % SERIES.length] }}
           />
         ))}
       </div>
@@ -17,7 +17,7 @@ export default function AllocationBars({ allocation }: { allocation: { label: st
             <span className="flex items-center gap-2.5 text-ink-2">
               <span
                 className="h-2.5 w-2.5 rounded-[1px]"
-                style={{ background: a.label === "Cash" ? "rgba(22,21,15,0.22)" : SERIES[i % SERIES.length] }}
+                style={{ background: a.label === "Cash" ? "rgba(159,163,189,0.35)" : SERIES[i % SERIES.length] }}
               />
               {a.label}
             </span>

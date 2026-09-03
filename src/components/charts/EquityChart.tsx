@@ -97,7 +97,7 @@ export default function EquityChart({ data, height = 320 }: Props) {
 
         {h && (
           <g>
-            <line x1={h.x} x2={h.x} y1={padT} y2={height - padB} stroke="rgba(22,21,15,0.35)" strokeWidth="1" strokeDasharray="3 3" />
+            <line x1={h.x} x2={h.x} y1={padT} y2={height - padB} stroke="rgba(159,163,189,0.4)" strokeWidth="1" strokeDasharray="3 3" />
             <circle cx={h.x} cy={h.y} r="4.5" fill="var(--color-mint)" stroke="var(--color-bg)" strokeWidth="2" />
           </g>
         )}

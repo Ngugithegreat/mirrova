@@ -40,7 +40,7 @@ const COLS: { title: string; links: { href: string; label: string }[] }[] = [
 
 export default function Footer() {
   return (
-    <footer className="border-t-2 border-ink bg-bg">
+    <footer className="border-t border-line bg-surface/40">
       <div className="mx-auto max-w-[1200px] px-5 pb-12 pt-16 lg:px-8">
         <div className="grid gap-12 lg:grid-cols-[1.4fr_repeat(4,1fr)]">
           <div>

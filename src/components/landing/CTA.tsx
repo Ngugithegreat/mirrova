@@ -5,8 +5,14 @@ import { fmtCount } from "@/lib/format";
 
 export default function CTA() {
   return (
-    <section className="border-t border-line bg-surface/60">
-      <div className="mx-auto max-w-3xl px-5 py-24 text-center lg:py-32">
+    <section className="relative overflow-hidden border-t border-line bg-surface/60">
+      <div aria-hidden="true">
+        <div className="aurora aurora-1 -top-20 left-[15%] h-[300px] w-[300px] !opacity-30" />
+        <div className="aurora aurora-2 bottom-0 right-[12%] h-[280px] w-[340px] !opacity-25" />
+        <span className="ring-pulse absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-mint/25" />
+        <span className="ring-pulse absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-violet/25" style={{ animationDelay: "1.6s" }} />
+      </div>
+      <div className="relative mx-auto max-w-3xl px-5 py-24 text-center lg:py-32">
         <Reveal>
           <p className="eyebrow">Membership is free</p>
           <h2 className="font-display mt-6 text-4xl font-semibold tracking-tight text-ink sm:text-[3.4rem] sm:leading-[1.05]">

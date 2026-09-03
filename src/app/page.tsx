@@ -2,6 +2,7 @@ import Navbar from "@/components/site/Navbar";
 import Footer from "@/components/site/Footer";
 import MarketsTicker from "@/components/site/MarketsTicker";
 import Hero from "@/components/landing/Hero";
+import TraderMarquee from "@/components/landing/TraderMarquee";
 import StatsStrip from "@/components/landing/StatsStrip";
 import HowItWorks from "@/components/landing/HowItWorks";
 import TopTradersSection from "@/components/landing/TopTradersSection";
@@ -19,6 +20,7 @@ export default function Home() {
       <main>
         <Hero />
         <MarketsTicker />
+        <TraderMarquee />
         <StatsStrip />
         <HowItWorks />
         <TopTradersSection />

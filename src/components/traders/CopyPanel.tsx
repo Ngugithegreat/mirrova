@@ -48,7 +48,7 @@ export default function CopyPanel({ slug, name, perfFee, minCopy }: Props) {
           <span className="font-semibold">You&apos;re copying {first}</span>
         </div>
         <p className="mt-2 text-sm text-ink-2">Manage the relationship from your portfolio.</p>
-        <Link href="/dashboard" className="mt-4 block rounded-[3px] bg-ink py-3 text-center text-sm font-medium tracking-wide text-[#f2efe6] transition-colors hover:bg-mint">
+        <Link href="/dashboard" className="mt-4 block sheen relative overflow-hidden rounded-full bg-gradient-to-r from-violet via-mint to-fuchsia py-3 text-center text-sm font-semibold text-[#06060c]">
           Open portfolio
         </Link>
       </div>
@@ -79,7 +79,7 @@ export default function CopyPanel({ slug, name, perfFee, minCopy }: Props) {
         step={100}
         value={amount}
         onChange={(e) => setAmount(Number(e.target.value))}
-        className="tnum mt-2.5 w-full rounded-[3px] border border-line bg-surface px-4 py-3 text-lg font-semibold text-ink focus:border-mint/50 focus:outline-none"
+        className="tnum mt-2.5 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-lg font-semibold text-ink focus:border-mint/50 focus:outline-none"
         aria-label="Copy amount in US dollars"
       />
 
@@ -97,7 +97,7 @@ export default function CopyPanel({ slug, name, perfFee, minCopy }: Props) {
         step={5}
         value={stop}
         onChange={(e) => setStop(Number(e.target.value))}
-        className="mt-2 w-full accent-[#1d5c3c]"
+        className="mt-2 w-full accent-[#22d3ee]"
       />
       <p className="mt-1.5 text-xs leading-relaxed text-ink-3">
         If this copy falls {stop}%, all mirrored positions close automatically and{" "}
@@ -112,7 +112,7 @@ export default function CopyPanel({ slug, name, perfFee, minCopy }: Props) {
 
       {error && <p className="mt-3 text-sm text-neg">{error}</p>}
 
-      <button onClick={start} className="mt-5 w-full rounded-[3px] bg-ink py-3.5 text-sm font-medium tracking-wide text-[#f2efe6] transition-colors hover:bg-mint">
+      <button onClick={start} className="mt-5 w-full sheen relative overflow-hidden rounded-full bg-gradient-to-r from-violet via-mint to-fuchsia py-3.5 text-sm font-semibold text-[#06060c]">
         {state.user ? `Start copying ${first}` : "Sign up & start copying"}
       </button>
       <p className="mt-3 text-center text-[11px] leading-relaxed text-ink-3">

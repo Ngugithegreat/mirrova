@@ -1,8 +1,14 @@
 import { hashString } from "@/lib/prng";
 import { cx } from "@/lib/format";
 
-/** Editorial monogram plates — solid heritage tones, serif initials, square cut. */
-const TONES = ["#1d5c3c", "#23629f", "#b3552b", "#7c3a66", "#5b5220", "#16150f"];
+const PALETTES = [
+  ["#8b5cf6", "#22d3ee"],
+  ["#22d3ee", "#34d399"],
+  ["#e879f9", "#8b5cf6"],
+  ["#f59e0b", "#e879f9"],
+  ["#34d399", "#3987e5"],
+  ["#3987e5", "#8b5cf6"],
+];
 
 export default function TraderAvatar({
   name,
@@ -19,7 +25,7 @@ export default function TraderAvatar({
     .slice(0, 2)
     .join("")
     .toUpperCase();
-  const tone = TONES[hashString(name) % TONES.length];
+  const [c1, c2] = PALETTES[hashString(name) % PALETTES.length];
   const sizes = {
     sm: "h-9 w-9 text-[11px]",
     md: "h-12 w-12 text-sm",
@@ -29,11 +35,11 @@ export default function TraderAvatar({
   return (
     <div
       className={cx(
-        "flex shrink-0 items-center justify-center rounded-[3px] font-display font-semibold text-[#f2efe6]",
+        "flex shrink-0 items-center justify-center rounded-full font-display font-semibold text-[#06060c] ring-2 ring-white/10",
         sizes[size],
         className
       )}
-      style={{ background: tone }}
+      style={{ background: `linear-gradient(135deg, ${c1}, ${c2})` }}
       aria-hidden="true"
     >
       {initials}
