@@ -13,15 +13,17 @@ export default function TraderCard({ trader }: { trader: Trader }) {
   return (
     <Link
       href={`/traders/${trader.slug}`}
-      className="panel panel-hover group block p-5"
+      className="panel panel-hover group block p-6"
       aria-label={`View ${trader.name}'s strategy`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3.5">
           <TraderAvatar name={trader.name} />
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="font-medium text-ink">{trader.name}</span>
+              <span className="font-display text-[1.05rem] font-semibold leading-tight text-ink">
+                {trader.name}
+              </span>
               {trader.verified && (
                 <svg viewBox="0 0 20 20" className="h-4 w-4 text-mint" fill="currentColor" aria-label="Verified">
                   <path
@@ -31,34 +33,41 @@ export default function TraderCard({ trader }: { trader: Trader }) {
                 </svg>
               )}
             </div>
-            <div className="mt-0.5 text-xs text-ink-3">
+            <div className="mt-1 text-xs text-ink-3">
               {trader.flag} {trader.country} · {trader.strategy}
             </div>
           </div>
         </div>
-        <Sparkline data={spark} id={trader.slug} width={110} height={40} positive={stats.return12m >= 0} />
       </div>
 
-      <div className="mt-5 grid grid-cols-3 gap-3 border-t border-line-soft pt-4">
+      <div className="mt-5 flex items-end justify-between gap-4 border-t border-line-soft pt-4">
         <div>
-          <div className="text-[11px] uppercase tracking-wide text-ink-3">12m return</div>
-          <div className={`tnum mt-0.5 text-lg font-semibold ${stats.return12m >= 0 ? "text-pos" : "text-neg"}`}>
+          <div className="eyebrow-muted">12-month return</div>
+          <div className={`fig mt-1 text-[2rem] font-semibold leading-none ${stats.return12m >= 0 ? "text-pos" : "text-neg"}`}>
             {fmtPct(stats.return12m)}
           </div>
         </div>
-        <div>
-          <div className="text-[11px] uppercase tracking-wide text-ink-3">Copiers</div>
-          <div className="tnum mt-0.5 text-lg font-semibold text-ink">{fmtCount(trader.copiers)}</div>
-        </div>
-        <div>
-          <div className="text-[11px] uppercase tracking-wide text-ink-3">Under copy</div>
-          <div className="tnum mt-0.5 text-lg font-semibold text-ink">{fmtCompact(trader.aum)}</div>
-        </div>
+        <Sparkline data={spark} id={trader.slug} width={116} height={42} positive={stats.return12m >= 0} />
       </div>
 
-      <div className="mt-4 flex items-center justify-between">
+      <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-line-soft pt-4">
+        <div>
+          <dt className="text-[10px] uppercase tracking-[0.14em] text-ink-3">Copiers</dt>
+          <dd className="tnum mt-0.5 text-sm font-semibold text-ink">{fmtCount(trader.copiers)}</dd>
+        </div>
+        <div>
+          <dt className="text-[10px] uppercase tracking-[0.14em] text-ink-3">Under copy</dt>
+          <dd className="tnum mt-0.5 text-sm font-semibold text-ink">{fmtCompact(trader.aum)}</dd>
+        </div>
+        <div>
+          <dt className="text-[10px] uppercase tracking-[0.14em] text-ink-3">Max drawdown</dt>
+          <dd className="tnum mt-0.5 text-sm font-semibold text-ink">{stats.maxDrawdown.toFixed(1)}%</dd>
+        </div>
+      </dl>
+
+      <div className="mt-4 flex items-center justify-between border-t border-line-soft pt-4">
         <RiskMeter score={trader.riskScore} />
-        <span className="text-sm font-medium text-mint opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+        <span className="text-[13px] font-medium text-mint underline-offset-4 group-hover:underline">
           View strategy →
         </span>
       </div>

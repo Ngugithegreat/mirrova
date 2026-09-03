@@ -40,30 +40,26 @@ const QA: { q: string; a: string }[] = [
 
 function Item({ q, a, open, onClick }: { q: string; a: string; open: boolean; onClick: () => void }) {
   return (
-    <div className="panel overflow-hidden">
+    <div className="border-t border-line">
       <button
         onClick={onClick}
         aria-expanded={open}
-        className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
+        className="flex w-full items-baseline justify-between gap-6 py-6 text-left"
       >
-        <span className="font-medium text-ink">{q}</span>
-        <svg
-          viewBox="0 0 20 20"
-          className={`h-5 w-5 shrink-0 text-mint transition-transform duration-300 ${open ? "rotate-45" : ""}`}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
+        <span className="font-display text-lg font-semibold text-ink">{q}</span>
+        <span
+          className={`fig shrink-0 text-xl leading-none transition-colors ${open ? "text-mint" : "text-ink-3"}`}
+          aria-hidden="true"
         >
-          <path d="M10 4v12M4 10h12" />
-        </svg>
+          {open ? "−" : "+"}
+        </span>
       </button>
       <div
         className="grid transition-[grid-template-rows] duration-300 ease-out"
         style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
       >
         <div className="overflow-hidden">
-          <p className="px-6 pb-6 leading-relaxed text-ink-2">{a}</p>
+          <p className="max-w-2xl pb-7 leading-[1.75] text-ink-2">{a}</p>
         </div>
       </div>
     </div>
@@ -73,18 +69,16 @@ function Item({ q, a, open, onClick }: { q: string; a: string; open: boolean; on
 export default function FAQ() {
   const [open, setOpen] = useState(0);
   return (
-    <section className="mx-auto max-w-3xl px-5 py-24 lg:py-32" id="faq">
-      <Reveal className="text-center">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-mint">FAQ</p>
-        <h2 className="font-display mt-4 text-3xl font-semibold tracking-tight sm:text-[2.6rem] sm:leading-[1.15]">
-          Everything people ask before they start
+    <section className="mx-auto max-w-3xl px-5 py-20 lg:py-28" id="faq">
+      <Reveal>
+        <p className="eyebrow">Questions</p>
+        <h2 className="font-display mt-4 text-3xl font-semibold tracking-tight text-ink sm:text-[2.75rem] sm:leading-[1.1]">
+          Asked before every first allocation
         </h2>
       </Reveal>
-      <div className="mt-12 space-y-3">
+      <div className="rule-heavy mt-10">
         {QA.map((item, i) => (
-          <Reveal key={item.q} delay={Math.min(i * 50, 200)}>
-            <Item {...item} open={open === i} onClick={() => setOpen(open === i ? -1 : i)} />
-          </Reveal>
+          <Item key={item.q} {...item} open={open === i} onClick={() => setOpen(open === i ? -1 : i)} />
         ))}
       </div>
     </section>

@@ -7,10 +7,10 @@ import { MONTH_LABELS } from "@/lib/traders";
 function cellStyle(v: number): React.CSSProperties {
   const cap = 8;
   const t = Math.min(Math.abs(v) / cap, 1);
-  if (Math.abs(v) < 0.05) return { background: "rgba(151,163,184,0.10)" };
+  if (Math.abs(v) < 0.05) return { background: "rgba(22,21,15,0.06)" };
   return v > 0
-    ? { background: `rgba(52, 211, 153, ${0.08 + t * 0.34})` }
-    : { background: `rgba(248, 113, 113, ${0.08 + t * 0.34})` };
+    ? { background: `rgba(23, 113, 74, ${0.07 + t * 0.3})` }
+    : { background: `rgba(179, 55, 47, ${0.07 + t * 0.3})` };
 }
 
 export default function MonthlyHeatmap({ returns }: { returns: number[] }) {

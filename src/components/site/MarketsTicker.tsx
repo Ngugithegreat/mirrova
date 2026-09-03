@@ -24,23 +24,23 @@ export default function MarketsTicker() {
   const row = (key: string) => (
     <div key={key} className="flex shrink-0 items-center" aria-hidden={key === "b"}>
       {items.map((m) => (
-        <div key={`${key}-${m.sym}`} className="flex items-center gap-2.5 px-6 py-2.5">
-          <span className="text-xs font-medium tracking-wide text-ink-2">{m.sym}</span>
+        <div key={`${key}-${m.sym}`} className="flex items-baseline gap-2.5 border-r border-line-soft px-7 py-2.5">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-3">{m.sym}</span>
           <span className="tnum text-xs text-ink">
             {m.price.toLocaleString("en-US", { minimumFractionDigits: m.decimals, maximumFractionDigits: m.decimals })}
           </span>
-          <span className={`tnum text-xs ${m.chg >= 0 ? "text-pos" : "text-neg"}`}>
-            {m.chg >= 0 ? "▲" : "▼"} {Math.abs(m.chg).toFixed(2)}%
+          <span className={`tnum text-[11px] ${m.chg >= 0 ? "text-pos" : "text-neg"}`}>
+            {m.chg >= 0 ? "+" : "−"}{Math.abs(m.chg).toFixed(2)}%
           </span>
         </div>
       ))}
     </div>
   );
   return (
-    <div className="relative overflow-hidden border-y border-line-soft bg-surface/60">
+    <div className="relative overflow-hidden border-y border-line bg-surface">
       <div className="ticker-track flex w-max">{[row("a"), row("b")]}</div>
-      <div className="pointer-events-none absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-bg to-transparent" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-bg to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-bg to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-bg to-transparent" />
     </div>
   );
 }

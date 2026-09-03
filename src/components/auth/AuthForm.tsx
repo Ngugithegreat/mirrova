@@ -59,7 +59,7 @@ function Form({ mode }: { mode: "signup" | "login" }) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Alex Investor"
-              className="mt-2 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-ink placeholder:text-ink-3 focus:border-mint/50 focus:outline-none"
+              className="mt-2 w-full rounded-[3px] border border-line bg-surface px-4 py-3 text-ink placeholder:text-ink-3 focus:border-mint/50 focus:outline-none"
             />
           </div>
         )}
@@ -73,13 +73,13 @@ function Form({ mode }: { mode: "signup" | "login" }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
-            className="mt-2 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-ink placeholder:text-ink-3 focus:border-mint/50 focus:outline-none"
+            className="mt-2 w-full rounded-[3px] border border-line bg-surface px-4 py-3 text-ink placeholder:text-ink-3 focus:border-mint/50 focus:outline-none"
           />
         </div>
 
         {error && <p className="text-sm text-neg">{error}</p>}
 
-        <button type="submit" className="w-full rounded-xl bg-mint py-3.5 text-sm font-semibold text-[#052e1f] transition-colors hover:bg-[#54ebb6]">
+        <button type="submit" className="w-full rounded-[3px] bg-ink py-3.5 text-sm font-medium tracking-wide text-[#f2efe6] transition-colors hover:bg-mint">
           {mode === "signup" ? "Create account" : "Log in"}
         </button>
 

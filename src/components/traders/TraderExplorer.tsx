@@ -52,7 +52,7 @@ export default function TraderExplorer() {
 
   const chip = (active: boolean) =>
     cx(
-      "rounded-full border px-4 py-1.5 text-sm transition-colors",
+      "rounded-[3px] border px-4 py-1.5 text-sm transition-colors",
       active
         ? "border-mint/50 bg-mint/10 text-mint"
         : "border-line text-ink-2 hover:border-line hover:text-ink"
@@ -71,7 +71,7 @@ export default function TraderExplorer() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search name, strategy, country…"
-            className="w-full rounded-xl border border-line bg-raised/60 py-2.5 pl-10 pr-4 text-sm text-ink placeholder:text-ink-3 focus:border-mint/50 focus:outline-none"
+            className="w-full rounded-[3px] border border-line bg-surface py-2.5 pl-10 pr-4 text-sm text-ink placeholder:text-ink-3 focus:border-mint/50 focus:outline-none"
             aria-label="Search traders"
           />
         </div>
@@ -85,7 +85,7 @@ export default function TraderExplorer() {
         <select
           value={market}
           onChange={(e) => setMarket(e.target.value)}
-          className="rounded-xl border border-line bg-raised/60 px-3.5 py-2.5 text-sm text-ink focus:border-mint/50 focus:outline-none"
+          className="rounded-[3px] border border-line bg-surface px-3.5 py-2.5 text-sm text-ink focus:border-mint/50 focus:outline-none"
           aria-label="Market"
         >
           {MARKETS.map((m) => (
@@ -97,7 +97,7 @@ export default function TraderExplorer() {
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as SortKey)}
-          className="rounded-xl border border-line bg-raised/60 px-3.5 py-2.5 text-sm text-ink focus:border-mint/50 focus:outline-none"
+          className="rounded-[3px] border border-line bg-surface px-3.5 py-2.5 text-sm text-ink focus:border-mint/50 focus:outline-none"
           aria-label="Sort by"
         >
           {SORTS.map((s) => (

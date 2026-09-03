@@ -5,20 +5,18 @@ type Variant = "primary" | "secondary" | "ghost";
 type Size = "md" | "lg" | "sm";
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint disabled:opacity-50 disabled:pointer-events-none";
+  "inline-flex items-center justify-center gap-2 rounded-[3px] font-medium tracking-wide transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint disabled:opacity-50 disabled:pointer-events-none";
 
 const variants: Record<Variant, string> = {
-  primary:
-    "bg-mint text-[#052e1f] hover:bg-[#54ebb6] shadow-[0_4px_24px_-6px_rgba(60,227,167,0.5)] hover:shadow-[0_6px_32px_-6px_rgba(60,227,167,0.65)]",
-  secondary:
-    "border border-line bg-raised/60 text-ink hover:border-mint/40 hover:bg-raised",
-  ghost: "text-ink-2 hover:text-ink hover:bg-raised/60",
+  primary: "bg-ink text-[#f2efe6] hover:bg-mint",
+  secondary: "border border-ink/40 bg-transparent text-ink hover:border-ink hover:bg-ink/4",
+  ghost: "text-ink-2 hover:text-ink underline-offset-4 hover:underline",
 };
 
 const sizes: Record<Size, string> = {
-  sm: "px-3.5 py-2 text-sm",
+  sm: "px-4 py-2 text-[13px]",
   md: "px-5 py-2.5 text-sm",
-  lg: "px-7 py-3.5 text-base",
+  lg: "px-8 py-3.5 text-[15px]",
 };
 
 type CommonProps = {

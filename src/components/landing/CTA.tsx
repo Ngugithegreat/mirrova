@@ -5,27 +5,23 @@ import { fmtCount } from "@/lib/format";
 
 export default function CTA() {
   return (
-    <section className="relative overflow-hidden border-t border-line-soft">
-      <div
-        className="absolute left-1/2 top-0 h-[420px] w-[820px] -translate-x-1/2 rounded-full opacity-25 blur-3xl"
-        style={{ background: "radial-gradient(closest-side, rgba(60,227,167,0.45), rgba(14,165,233,0.15), transparent)" }}
-        aria-hidden="true"
-      />
-      <div className="relative mx-auto max-w-3xl px-5 py-28 text-center lg:py-36">
+    <section className="border-t border-line bg-surface/60">
+      <div className="mx-auto max-w-3xl px-5 py-24 text-center lg:py-32">
         <Reveal>
-          <h2 className="font-display text-4xl font-semibold tracking-tight sm:text-[3.2rem] sm:leading-[1.1]">
-            The market's best minds are one click away
+          <p className="eyebrow">Membership is free</p>
+          <h2 className="font-display mt-6 text-4xl font-semibold tracking-tight text-ink sm:text-[3.4rem] sm:leading-[1.05]">
+            The market&rsquo;s best minds, one allocation away
           </h2>
-          <p className="mx-auto mt-6 max-w-xl text-lg text-ink-2">
-            Join {fmtCount(PLATFORM_STATS.copiers)} investors who stopped guessing and started copying.
-            Free to join, copy from $100, leave whenever you like.
+          <p className="mx-auto mt-7 max-w-xl text-lg leading-relaxed text-ink-2">
+            Join {fmtCount(PLATFORM_STATS.copiers)} investors who stopped guessing and started
+            allocating. Free to join, copy from $100, leave whenever you wish.
           </p>
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-5">
             <ButtonLink href="/signup" size="lg">
-              Create free account
+              Create your account
             </ButtonLink>
             <ButtonLink href="/traders" variant="secondary" size="lg">
-              Explore traders first
+              Study the register first
             </ButtonLink>
           </div>
           <p className="mt-8 text-xs text-ink-3">Capital at risk. No card required to browse.</p>

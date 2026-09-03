@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
-import { Inter, Sora } from "next/font/google";
+import { Inter, Fraunces } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
-const sora = Sora({ subsets: ["latin"], variable: "--font-sora", display: "swap" });
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-fraunces",
+  display: "swap",
+  axes: ["opsz", "SOFT", "WONK"],
+});
 
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ??
@@ -35,8 +40,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${sora.variable}`}>
-      <body>{children}</body>
+    <html lang="en" className={`${inter.variable} ${fraunces.variable}`}>
+      <body>
+        <noscript>
+          <style>{`.reveal{opacity:1 !important;transform:none !important}`}</style>
+        </noscript>
+        {children}
+      </body>
     </html>
   );
 }

@@ -4,77 +4,50 @@ import { ButtonLink } from "@/components/ui/Button";
 const STEPS = [
   {
     n: "01",
-    title: "Discover vetted traders",
+    title: "Study the register",
     body:
-      "Every strategist on Mirrova passes a multi-stage review: a minimum 12-month verified track record, drawdown discipline, and a documented strategy. Fewer than 2% of applicants make it onto the leaderboard.",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-6 w-6" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="11" cy="11" r="7" />
-        <path d="m20 20-3.5-3.5" />
-      </svg>
-    ),
+      "Every strategist passes a multi-stage review — a verified 12-month record, drawdown discipline, a documented process. Fewer than 2% of applicants are listed, and every history is public and permanent.",
   },
   {
     n: "02",
-    title: "Copy with one click",
+    title: "Allocate on your terms",
     body:
-      "Choose how much to allocate — from $100. From that moment, every position the trader opens or closes is mirrored to your account proportionally, in a median of 38 milliseconds.",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-6 w-6" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="9" y="9" width="12" height="12" rx="2.5" />
-        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-      </svg>
-    ),
+      "Choose an amount from $100 and set your copy stop-loss before a single trade is mirrored. From then on, every position is replicated proportionally to your allocation — in a median of 38 milliseconds.",
   },
   {
     n: "03",
-    title: "Stay in control",
+    title: "Hold the line",
     body:
-      "Set a copy stop-loss, cap position sizes, pause mirroring, or exit entirely — at any time, instantly. Your money never leaves your account and is never pooled with anyone else's.",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-6 w-6" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2 4 5.5v5.7c0 4.9 3.4 9.5 8 10.8 4.6-1.3 8-5.9 8-10.8V5.5L12 2Z" />
-        <path d="m8.7 11.7 2.3 2.3 4.3-4.5" />
-      </svg>
-    ),
+      "Pause mirroring, close a position, or exit entirely — at any hour, at market, without notice periods. Your money never leaves your own segregated account, and your downside is capped where you set it.",
   },
 ];
 
 export default function HowItWorks() {
   return (
-    <section className="mx-auto max-w-7xl px-5 py-24 lg:px-8 lg:py-32" id="how">
-      <Reveal className="mx-auto max-w-2xl text-center">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-mint">How it works</p>
-        <h2 className="font-display mt-4 text-3xl font-semibold tracking-tight sm:text-[2.6rem] sm:leading-[1.15]">
-          From zero to copying in under five minutes
-        </h2>
-        <p className="mt-5 text-lg text-ink-2">
-          No trading experience required. You pick the people; the platform handles the execution.
-        </p>
+    <section className="mx-auto max-w-[1200px] px-5 py-20 lg:px-8 lg:py-28" id="how">
+      <Reveal className="flex flex-wrap items-end justify-between gap-6">
+        <div>
+          <p className="eyebrow">The method</p>
+          <h2 className="font-display mt-4 max-w-2xl text-3xl font-semibold tracking-tight text-ink sm:text-[2.75rem] sm:leading-[1.1]">
+            Three decisions. Everything else is executed for you.
+          </h2>
+        </div>
+        <ButtonLink href="/how-it-works" variant="secondary" className="shrink-0">
+          The full mechanics
+        </ButtonLink>
       </Reveal>
 
-      <div className="mt-16 grid gap-6 lg:grid-cols-3">
+      <div className="mt-14 grid gap-x-10 gap-y-12 md:grid-cols-3">
         {STEPS.map((s, i) => (
           <Reveal key={s.n} delay={i * 110}>
-            <div className="panel relative h-full overflow-hidden p-8">
-              <span className="font-display pointer-events-none absolute -right-2 -top-6 text-[7rem] font-bold leading-none text-ink/4 select-none">
-                {s.n}
-              </span>
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-mint/25 bg-mint/8 text-mint">
-                {s.icon}
-              </div>
-              <h3 className="font-display mt-6 text-xl font-semibold text-ink">{s.title}</h3>
-              <p className="mt-3 leading-relaxed text-ink-2">{s.body}</p>
+            <div className="rule-heavy pt-6">
+              <div className="fig text-sm font-semibold text-mint">{s.n}</div>
+              <h3 className="font-display mt-3 text-[1.45rem] font-semibold text-ink">{s.title}</h3>
+              <p className="mt-3.5 leading-relaxed text-ink-2">{s.body}</p>
             </div>
           </Reveal>
         ))}
       </div>
-
-      <Reveal className="mt-12 text-center">
-        <ButtonLink href="/how-it-works" variant="secondary">
-          See the full mechanics →
-        </ButtonLink>
-      </Reveal>
     </section>
   );
 }

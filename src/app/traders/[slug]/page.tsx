@@ -149,7 +149,7 @@ export default async function TraderPage({ params }: { params: Promise<{ slug: s
                       <tr key={i} className="border-b border-line-soft last:border-0">
                         <td className="py-3.5 pr-4 font-medium text-ink">{tr.instrument}</td>
                         <td className="py-3.5 pr-4">
-                          <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${tr.side === "Long" ? "bg-pos/10 text-pos" : "bg-s5/15 text-[#e58bab]"}`}>
+                          <span className={`rounded-[2px] px-2 py-0.5 text-xs font-medium ${tr.side === "Long" ? "bg-pos/10 text-pos" : "bg-neg/10 text-neg"}`}>
                             {tr.side}
                           </span>
                         </td>

@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 const LEVEL_TONE: Record<string, string> = {
   Beginner: "border-pos/40 bg-pos/10 text-pos",
   Intermediate: "border-warn/40 bg-warn/10 text-warn",
-  Advanced: "border-s5/40 bg-s5/10 text-[#e58bab]",
+  Advanced: "border-s4/40 bg-s4/10 text-s4",
 };
 
 export default function LearnPage() {

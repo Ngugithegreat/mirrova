@@ -97,7 +97,7 @@ export default function EquityChart({ data, height = 320 }: Props) {
 
         {h && (
           <g>
-            <line x1={h.x} x2={h.x} y1={padT} y2={height - padB} stroke="rgba(151,163,184,0.35)" strokeWidth="1" strokeDasharray="3 3" />
+            <line x1={h.x} x2={h.x} y1={padT} y2={height - padB} stroke="rgba(22,21,15,0.35)" strokeWidth="1" strokeDasharray="3 3" />
             <circle cx={h.x} cy={h.y} r="4.5" fill="var(--color-mint)" stroke="var(--color-bg)" strokeWidth="2" />
           </g>
         )}
@@ -105,17 +105,17 @@ export default function EquityChart({ data, height = 320 }: Props) {
 
       {h && hMonth && (
         <div
-          className="pointer-events-none absolute z-10 -translate-x-1/2 rounded-lg border border-line bg-overlay px-3 py-2 text-xs shadow-xl"
+          className="pointer-events-none absolute z-10 -translate-x-1/2 rounded-[3px] bg-overlay px-3 py-2 text-xs shadow-xl"
           style={{
             left: `${(h.x / W) * 100}%`,
             top: Math.max(0, (h.y / height) * 100 - 22) + "%",
           }}
         >
-          <div className="text-ink-2">
+          <div className="text-[#bdb9ac]">
             {hMonth.label} {hMonth.year}
           </div>
-          <div className="tnum mt-0.5 font-semibold text-ink">${h.v.toFixed(1)}</div>
-          <div className={`tnum ${hRet >= 0 ? "text-pos" : "text-neg"}`}>
+          <div className="tnum mt-0.5 font-semibold text-[#f2efe6]">${h.v.toFixed(1)}</div>
+          <div className={`tnum ${hRet >= 0 ? "text-[#4bc48b]" : "text-[#e0705f]"}`}>
             {hRet >= 0 ? "+" : ""}
             {hRet.toFixed(1)}% total
           </div>
