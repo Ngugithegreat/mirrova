@@ -4,6 +4,7 @@ import TraderAvatar from "@/components/ui/TraderAvatar";
 import Sparkline from "@/components/charts/Sparkline";
 import LiveChart from "@/components/motion/LiveChart";
 import ProsperityField from "@/components/motion/ProsperityField";
+import BullMascot from "@/components/motion/BullMascot";
 import ActivityFeed from "@/components/motion/ActivityFeed";
 import CountUp from "@/components/motion/CountUp";
 import { PLATFORM_STATS, equitySeries, traderStats, getTrader } from "@/lib/traders";
@@ -25,6 +26,9 @@ export default function Hero() {
         <div className="aurora aurora-3 top-[420px] left-[38%] h-[300px] w-[300px]" />
       </div>
       <ProsperityField particleCount={32} />
+      <div className="absolute inset-x-0 bottom-0 h-[110px] overflow-hidden" aria-hidden="true">
+        <BullMascot id="hero" bottom="4px" scale={1.05} duration={30} />
+      </div>
 
       <div className="relative mx-auto grid max-w-7xl items-center gap-16 px-5 pb-20 pt-14 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:pb-28 lg:pt-20">
         <div>
