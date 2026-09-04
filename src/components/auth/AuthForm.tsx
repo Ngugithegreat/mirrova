@@ -3,35 +3,48 @@
 import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { demo, useDemoState } from "@/lib/demoStore";
+import { account, useAccountState } from "@/lib/accountClient";
 import { LogoMark } from "@/components/ui/Logo";
 
 function Form({ mode }: { mode: "signup" | "login" }) {
   const router = useRouter();
   const params = useSearchParams();
-  const state = useDemoState();
+  const state = useAccountState();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const copyTarget = params.get("copy");
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
       setError("Enter a valid email address.");
       return;
     }
-    if (mode === "signup") {
-      if (name.trim().length < 2) {
-        setError("Enter your name.");
-        return;
-      }
-      demo.signUp(name.trim(), email.trim());
-    } else {
-      demo.logIn(email.trim());
+    if (mode === "signup" && name.trim().length < 2) {
+      setError("Enter your name.");
+      return;
     }
-    router.push(copyTarget ? `/traders/${copyTarget}` : "/dashboard");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    setBusy(true);
+    try {
+      if (mode === "signup") {
+        await account.signUp(name.trim(), email.trim(), password);
+      } else {
+        await account.logIn(email.trim(), password);
+      }
+      router.push(copyTarget ? `/traders/${copyTarget}` : "/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -59,6 +72,7 @@ function Form({ mode }: { mode: "signup" | "login" }) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Alex Investor"
+              autoComplete="name"
               className="mt-2 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-ink placeholder:text-ink-3 focus:border-mint/50 focus:outline-none"
             />
           </div>
@@ -73,19 +87,38 @@ function Form({ mode }: { mode: "signup" | "login" }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
+            autoComplete="email"
+            className="mt-2 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-ink placeholder:text-ink-3 focus:border-mint/50 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label htmlFor="password" className="text-xs font-medium uppercase tracking-wide text-ink-3">
+            Password
+          </label>
+          <input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="At least 8 characters"
+            autoComplete={mode === "signup" ? "new-password" : "current-password"}
             className="mt-2 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-ink placeholder:text-ink-3 focus:border-mint/50 focus:outline-none"
           />
         </div>
 
         {error && <p className="text-sm text-neg">{error}</p>}
 
-        <button type="submit" className="w-full sheen relative overflow-hidden rounded-full bg-gradient-to-r from-violet via-mint to-fuchsia py-3.5 text-sm font-semibold text-[#06060c]">
-          {mode === "signup" ? "Create account" : "Log in"}
+        <button
+          type="submit"
+          disabled={busy}
+          className="sheen relative w-full overflow-hidden rounded-full bg-gradient-to-r from-violet via-mint to-fuchsia py-3.5 text-sm font-semibold text-[#06060c] disabled:opacity-60"
+        >
+          {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Log in"}
         </button>
 
         <p className="text-center text-[11px] leading-relaxed text-ink-3">
-          Practice mode: no password or card needed for this preview. Your session is stored on this
-          device only.
+          Your account is real and persisted — trading funds are practice-mode only ($100,000 virtual
+          balance, no real money).
         </p>
       </form>
 
@@ -97,7 +130,7 @@ function Form({ mode }: { mode: "signup" | "login" }) {
         )}
       </p>
 
-      {state.user && (
+      {state.ready && state.user && (
         <p className="mt-4 text-center text-sm text-ink-3">
           Signed in as {state.user.email} — <Link href="/dashboard" className="text-mint hover:underline">go to portfolio</Link>
         </p>

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { demo, useDemoState } from "@/lib/demoStore";
+import { account, useAccountState } from "@/lib/accountClient";
 import { fmtMoney } from "@/lib/format";
 
 type Props = {
@@ -14,16 +14,17 @@ type Props = {
 };
 
 export default function CopyPanel({ slug, name, perfFee, minCopy }: Props) {
-  const state = useDemoState();
+  const state = useAccountState();
   const router = useRouter();
   const [amount, setAmount] = useState(1000);
   const [stop, setStop] = useState(20);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const already = state.copies.some((c) => c.slug === slug);
   const first = name.split(" ")[0];
 
-  function start() {
+  async function start() {
     setError(null);
     if (!state.user) {
       router.push(`/signup?copy=${slug}`);
@@ -33,9 +34,15 @@ export default function CopyPanel({ slug, name, perfFee, minCopy }: Props) {
       setError(`Minimum copy amount for ${first} is ${fmtMoney(minCopy)}.`);
       return;
     }
-    const res = demo.startCopy(slug, amount, stop);
-    if (res === "insufficient") setError(`Not enough available cash (${fmtMoney(state.cash)}).`);
-    else if (res === "ok") router.push("/dashboard");
+    setBusy(true);
+    try {
+      await account.startCopy(slug, Math.round(amount * 100), stop);
+      router.push("/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (already) {
@@ -112,8 +119,12 @@ export default function CopyPanel({ slug, name, perfFee, minCopy }: Props) {
 
       {error && <p className="mt-3 text-sm text-neg">{error}</p>}
 
-      <button onClick={start} className="mt-5 w-full sheen relative overflow-hidden rounded-full bg-gradient-to-r from-violet via-mint to-fuchsia py-3.5 text-sm font-semibold text-[#06060c]">
-        {state.user ? `Start copying ${first}` : "Sign up & start copying"}
+      <button
+        onClick={start}
+        disabled={busy}
+        className="mt-5 w-full sheen relative overflow-hidden rounded-full bg-gradient-to-r from-violet via-mint to-fuchsia py-3.5 text-sm font-semibold text-[#06060c] disabled:opacity-60"
+      >
+        {busy ? "Please wait…" : state.ready && state.user ? `Start copying ${first}` : "Sign up & start copying"}
       </button>
       <p className="mt-3 text-center text-[11px] leading-relaxed text-ink-3">
         Practice mode — trades simulate with a $100k virtual balance. Capital at risk when live.

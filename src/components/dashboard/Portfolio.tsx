@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { demo, useDemoState, copyValue } from "@/lib/demoStore";
+import { account, useAccountState } from "@/lib/accountClient";
 import { getTrader, traderStats, equitySeries } from "@/lib/traders";
 import { fmtMoney, fmtPct } from "@/lib/format";
 import TraderAvatar from "@/components/ui/TraderAvatar";
@@ -12,8 +12,8 @@ import { ButtonLink } from "@/components/ui/Button";
 import CountUp from "@/components/motion/CountUp";
 import Auroras from "@/components/motion/Auroras";
 
-function timeAgo(ts: number) {
-  const s = Math.floor((Date.now() - ts) / 1000);
+function timeAgo(iso: string) {
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 60) return "just now";
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
@@ -21,11 +21,10 @@ function timeAgo(ts: number) {
 }
 
 export default function Portfolio() {
-  const state = useDemoState();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const state = useAccountState();
+  const [stopping, setStopping] = useState<string | null>(null);
 
-  if (!mounted) {
+  if (!state.ready) {
     return <div className="mx-auto max-w-6xl px-5 py-24 text-center text-ink-3">Loading portfolio…</div>;
   }
 
@@ -42,14 +41,25 @@ export default function Portfolio() {
     );
   }
 
-  const positions = state.copies.map((rel) => {
-    const t = getTrader(rel.slug)!;
-    const value = copyValue(rel);
-    return { rel, t, value, pnl: value - rel.amount, pnlPct: ((value - rel.amount) / rel.amount) * 100 };
+  const positions = state.copies.map((c) => {
+    const t = getTrader(c.slug)!;
+    const amount = c.amountCents / 100;
+    const value = c.currentValueCents / 100;
+    return { c, t, amount, value, pnl: value - amount, pnlPct: ((value - amount) / amount) * 100 };
   });
   const invested = positions.reduce((s, p) => s + p.value, 0);
-  const total = state.cash + invested;
+  const cash = state.cashCents / 100;
+  const total = cash + invested;
   const totalPnl = positions.reduce((s, p) => s + p.pnl, 0);
+
+  async function handleStop(slug: string) {
+    setStopping(slug);
+    try {
+      await account.stopCopy(slug);
+    } finally {
+      setStopping(null);
+    }
+  }
 
   return (
     <div className="relative">
@@ -67,7 +77,7 @@ export default function Portfolio() {
           </p>
           <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight">Portfolio</h1>
         </div>
-        <button onClick={() => demo.logOut()} className="text-sm text-ink-3 transition-colors hover:text-ink">
+        <button onClick={() => account.logOut()} className="text-sm text-ink-3 transition-colors hover:text-ink">
           Log out
         </button>
       </div>
@@ -82,7 +92,7 @@ export default function Portfolio() {
         <div className="panel p-6">
           <div className="text-[11px] uppercase tracking-wide text-ink-3">Available cash</div>
           <div className="tnum mt-1.5 font-display text-3xl font-semibold text-ink">
-            <CountUp value={state.cash} format="money" duration={1200} />
+            <CountUp value={cash} format="money" duration={1200} />
           </div>
         </div>
         <div className="panel p-6">
@@ -110,16 +120,16 @@ export default function Portfolio() {
         </div>
       ) : (
         <div className="mt-4 space-y-4">
-          {positions.map(({ rel, t, value, pnl, pnlPct }, i) => {
+          {positions.map(({ c, t, amount, value, pnl, pnlPct }, i) => {
             const s = traderStats(t);
             const eq = equitySeries(t).filter((_, i) => i % 2 === 0).slice(-40);
             return (
               <div
-                key={rel.slug}
+                key={c.slug}
                 className="panel panel-hover row-in flex flex-col gap-5 p-6 lg:flex-row lg:items-center lg:justify-between"
                 style={{ animationDelay: `${i * 0.12}s` }}
               >
-                <Link href={`/traders/${rel.slug}`} className="flex items-center gap-4">
+                <Link href={`/traders/${c.slug}`} className="flex items-center gap-4">
                   <TraderAvatar name={t.name} />
                   <div>
                     <div className="font-medium text-ink">{t.name}</div>
@@ -127,11 +137,11 @@ export default function Portfolio() {
                     <div className="mt-1.5"><RiskMeter score={t.riskScore} showLabel={false} /></div>
                   </div>
                 </Link>
-                <Sparkline data={eq} id={`dash-${rel.slug}`} width={120} height={40} positive={s.return12m >= 0} />
+                <Sparkline data={eq} id={`dash-${c.slug}`} width={120} height={40} positive={s.return12m >= 0} />
                 <div className="grid grid-cols-3 gap-6 lg:text-right">
                   <div>
                     <div className="text-[11px] uppercase tracking-wide text-ink-3">Invested</div>
-                    <div className="tnum mt-0.5 font-semibold text-ink">{fmtMoney(rel.amount)}</div>
+                    <div className="tnum mt-0.5 font-semibold text-ink">{fmtMoney(amount)}</div>
                   </div>
                   <div>
                     <div className="text-[11px] uppercase tracking-wide text-ink-3">Value</div>
@@ -146,13 +156,14 @@ export default function Portfolio() {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-xs text-ink-3">
-                    Stop-loss <span className="tnum text-ink-2">−{rel.stopLossPct}%</span>
+                    Stop-loss <span className="tnum text-ink-2">−{c.stopLossPct}%</span>
                   </div>
                   <button
-                    onClick={() => demo.stopCopy(rel.slug)}
-                    className="rounded-lg border border-line px-3.5 py-2 text-xs text-ink-2 transition-colors hover:border-neg/50 hover:text-neg"
+                    onClick={() => handleStop(c.slug)}
+                    disabled={stopping === c.slug}
+                    className="rounded-lg border border-line px-3.5 py-2 text-xs text-ink-2 transition-colors hover:border-neg/50 hover:text-neg disabled:opacity-50"
                   >
-                    Stop copying
+                    {stopping === c.slug ? "Stopping…" : "Stop copying"}
                   </button>
                 </div>
               </div>
@@ -168,7 +179,7 @@ export default function Portfolio() {
             {state.activity.slice(0, 8).map((a, i) => (
               <div key={i} className="flex items-center justify-between gap-4 px-6 py-4 text-sm">
                 <span className="text-ink-2">{a.text}</span>
-                <span className="shrink-0 text-xs text-ink-3">{timeAgo(a.at)}</span>
+                <span className="shrink-0 text-xs text-ink-3">{timeAgo(a.createdAt)}</span>
               </div>
             ))}
           </div>

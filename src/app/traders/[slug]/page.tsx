@@ -10,6 +10,7 @@ import MonthlyHeatmap from "@/components/charts/MonthlyHeatmap";
 import AllocationBars from "@/components/charts/AllocationBars";
 import CopyPanel from "@/components/traders/CopyPanel";
 import Auroras from "@/components/motion/Auroras";
+import TradeNetwork from "@/components/motion/TradeNetwork";
 import Reveal from "@/components/ui/Reveal";
 import { TRADERS, getTrader, traderStats, equitySeries } from "@/lib/traders";
 import { recentTrades } from "@/lib/trades";
@@ -53,7 +54,8 @@ export default async function TraderPage({ params }: { params: Promise<{ slug: s
       <Navbar />
       <main className="pt-[72px]">
         <div className="relative overflow-hidden border-b border-line-soft bg-surface/40">
-          <Auroras />
+          <Auroras dim />
+          <TradeNetwork density={0.55} opacity={0.5} />
           <div className="relative mx-auto max-w-7xl px-5 py-10 lg:px-8">
             <Link href="/traders" className="text-sm text-ink-3 transition-colors hover:text-ink">
               ← All traders
