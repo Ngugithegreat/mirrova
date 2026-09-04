@@ -1,5 +1,6 @@
 import Reveal from "@/components/ui/Reveal";
 import { ButtonLink } from "@/components/ui/Button";
+import ProsperityField from "@/components/motion/ProsperityField";
 import { PLATFORM_STATS } from "@/lib/traders";
 import { fmtCount } from "@/lib/format";
 
@@ -12,6 +13,7 @@ export default function CTA() {
         <span className="ring-pulse absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-mint/25" />
         <span className="ring-pulse absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-violet/25" style={{ animationDelay: "1.6s" }} />
       </div>
+      <ProsperityField dim particleCount={20} />
       <div className="relative mx-auto max-w-3xl px-5 py-24 text-center lg:py-32">
         <Reveal>
           <p className="eyebrow">Membership is free</p>

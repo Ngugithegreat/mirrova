@@ -3,6 +3,7 @@ import { ButtonLink } from "@/components/ui/Button";
 import TraderAvatar from "@/components/ui/TraderAvatar";
 import Sparkline from "@/components/charts/Sparkline";
 import LiveChart from "@/components/motion/LiveChart";
+import ProsperityField from "@/components/motion/ProsperityField";
 import ActivityFeed from "@/components/motion/ActivityFeed";
 import CountUp from "@/components/motion/CountUp";
 import { PLATFORM_STATS, equitySeries, traderStats, getTrader } from "@/lib/traders";
@@ -23,6 +24,7 @@ export default function Hero() {
         <div className="aurora aurora-2 top-24 right-[4%] h-[380px] w-[480px]" />
         <div className="aurora aurora-3 top-[420px] left-[38%] h-[300px] w-[300px]" />
       </div>
+      <ProsperityField particleCount={32} />
 
       <div className="relative mx-auto grid max-w-7xl items-center gap-16 px-5 pb-20 pt-14 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:pb-28 lg:pt-20">
         <div>
