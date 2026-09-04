@@ -1,7 +1,6 @@
 import Reveal from "@/components/ui/Reveal";
 import { ButtonLink } from "@/components/ui/Button";
-import ProsperityField from "@/components/motion/ProsperityField";
-import BullMascot from "@/components/motion/BullMascot";
+import TradeNetwork from "@/components/motion/TradeNetwork";
 import { PLATFORM_STATS } from "@/lib/traders";
 import { fmtCount } from "@/lib/format";
 
@@ -9,15 +8,12 @@ export default function CTA() {
   return (
     <section className="relative overflow-hidden border-t border-line bg-surface/60">
       <div aria-hidden="true">
-        <div className="aurora aurora-1 -top-20 left-[15%] h-[300px] w-[300px] !opacity-30" />
-        <div className="aurora aurora-2 bottom-0 right-[12%] h-[280px] w-[340px] !opacity-25" />
+        <div className="aurora aurora-1 -top-20 left-[15%] h-[300px] w-[300px] !opacity-25" />
+        <div className="aurora aurora-2 bottom-0 right-[12%] h-[280px] w-[340px] !opacity-20" />
         <span className="ring-pulse absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-mint/25" />
         <span className="ring-pulse absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-violet/25" style={{ animationDelay: "1.6s" }} />
       </div>
-      <ProsperityField dim particleCount={20} />
-      <div className="absolute inset-x-0 bottom-0 h-[90px] overflow-hidden" aria-hidden="true">
-        <BullMascot id="cta" bottom="2px" scale={0.85} duration={34} delay={12} opacity={0.8} />
-      </div>
+      <TradeNetwork density={0.7} opacity={0.5} />
       <div className="relative mx-auto max-w-3xl px-5 py-24 text-center lg:py-32">
         <Reveal>
           <p className="eyebrow">Membership is free</p>
