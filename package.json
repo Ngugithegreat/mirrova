@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "verify:backend": "tsx scripts/verify-backend.ts",
+    "verify:real": "tsx scripts/verify-real.ts",
     "dev:localdb": "node scripts/local-pg-server.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts"

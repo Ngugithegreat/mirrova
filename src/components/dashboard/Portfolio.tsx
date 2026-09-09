@@ -77,9 +77,14 @@ export default function Portfolio() {
           </p>
           <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight">Portfolio</h1>
         </div>
-        <button onClick={() => account.logOut()} className="text-sm text-ink-3 transition-colors hover:text-ink">
-          Log out
-        </button>
+        <div className="flex items-center gap-5">
+          <Link href="/wallet" className="text-sm font-medium text-mint transition-colors hover:underline">
+            Real wallet →
+          </Link>
+          <button onClick={() => account.logOut()} className="text-sm text-ink-3 transition-colors hover:text-ink">
+            Log out
+          </button>
+        </div>
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
