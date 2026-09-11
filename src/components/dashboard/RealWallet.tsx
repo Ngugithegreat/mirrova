@@ -8,7 +8,6 @@ import { TRADERS, getTrader } from "@/lib/traders";
 import { fmtMoney } from "@/lib/format";
 import { ButtonLink } from "@/components/ui/Button";
 import TraderAvatar from "@/components/ui/TraderAvatar";
-import Auroras from "@/components/motion/Auroras";
 
 function timeAgo(iso: string) {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -105,11 +104,7 @@ export default function RealWallet() {
   const allocTrader = real.allocation ? getTrader(real.allocation.slug) : null;
 
   return (
-    <div className="relative">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] overflow-hidden" aria-hidden="true">
-        <Auroras dim />
-      </div>
-      <div className="relative mx-auto max-w-4xl px-5 py-10 lg:px-8">
+    <div className="mx-auto max-w-4xl px-5 py-10 lg:px-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm text-ink-3">
@@ -148,14 +143,28 @@ export default function RealWallet() {
                 <label htmlFor="amountKes" className="text-xs font-medium uppercase tracking-wide text-ink-3">
                   Amount (KES)
                 </label>
+                <div className="mt-2 flex items-center gap-2">
+                  {[500, 1000, 5000, 10000].map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setAmountKes(v)}
+                      className={`rounded-lg border px-3 py-1.5 text-xs transition-colors ${
+                        amountKes === v ? "border-mint/50 bg-mint/10 text-mint" : "border-line text-ink-2 hover:text-ink"
+                      }`}
+                    >
+                      {v.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
                 <input
                   id="amountKes"
                   type="number"
                   min={10}
-                  step={50}
+                  step={1}
                   value={amountKes}
                   onChange={(e) => setAmountKes(Number(e.target.value))}
-                  className="tnum mt-2 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-lg font-semibold text-ink focus:border-mint/50 focus:outline-none"
+                  className="tnum mt-2.5 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-lg font-semibold text-ink focus:border-mint/50 focus:outline-none"
                 />
               </div>
 
@@ -254,7 +263,6 @@ export default function RealWallet() {
             ))}
           </div>
         )}
-      </div>
     </div>
   );
 }

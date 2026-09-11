@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Navbar from "@/components/site/Navbar";
-import Footer from "@/components/site/Footer";
+import AppNavbar from "@/components/site/AppNavbar";
+import AppFooter from "@/components/site/AppFooter";
 import Portfolio from "@/components/dashboard/Portfolio";
 
 export const metadata: Metadata = { title: "Portfolio" };
@@ -8,11 +8,11 @@ export const metadata: Metadata = { title: "Portfolio" };
 export default function DashboardPage() {
   return (
     <>
-      <Navbar />
-      <main className="min-h-[80vh] pt-[72px]">
+      <AppNavbar />
+      <main className="min-h-[80vh] pt-[68px]">
         <Portfolio />
       </main>
-      <Footer />
+      <AppFooter />
     </>
   );
 }

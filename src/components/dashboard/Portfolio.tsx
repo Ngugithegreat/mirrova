@@ -10,7 +10,6 @@ import RiskMeter from "@/components/ui/RiskMeter";
 import Sparkline from "@/components/charts/Sparkline";
 import { ButtonLink } from "@/components/ui/Button";
 import CountUp from "@/components/motion/CountUp";
-import Auroras from "@/components/motion/Auroras";
 
 function timeAgo(iso: string) {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -62,11 +61,7 @@ export default function Portfolio() {
   }
 
   return (
-    <div className="relative">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] overflow-hidden" aria-hidden="true">
-        <Auroras dim />
-      </div>
-      <div className="relative mx-auto max-w-6xl px-5 py-10 lg:px-8">
+    <div className="mx-auto max-w-6xl px-5 py-10 lg:px-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm text-ink-3">
@@ -195,7 +190,6 @@ export default function Portfolio() {
         Practice mode simulates copy performance from each trader&apos;s recent pace; figures refresh daily
         and are illustrative only.
       </p>
-      </div>
     </div>
   );
 }
