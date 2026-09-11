@@ -39,7 +39,7 @@ function Form({ mode }: { mode: "signup" | "login" }) {
       } else {
         await account.logIn(email.trim(), password);
       }
-      router.push(copyTarget ? `/traders/${copyTarget}` : "/dashboard");
+      router.push(copyTarget ? `/traders/${copyTarget}` : "/wallet");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -132,7 +132,7 @@ function Form({ mode }: { mode: "signup" | "login" }) {
 
       {state.ready && state.user && (
         <p className="mt-4 text-center text-sm text-ink-3">
-          Signed in as {state.user.email} — <Link href="/dashboard" className="text-mint hover:underline">go to portfolio</Link>
+          Signed in as {state.user.email} — <Link href="/wallet" className="text-mint hover:underline">go to your account</Link>
         </p>
       )}
     </div>

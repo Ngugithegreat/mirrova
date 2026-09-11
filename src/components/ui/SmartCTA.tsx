@@ -7,7 +7,7 @@ import { useAccountState } from "@/lib/accountClient";
  * prompts for someone who already has an account. */
 export default function SmartCTA({
   signedOutLabel,
-  signedInLabel = "Go to your portfolio",
+  signedInLabel = "Go to your account",
   size = "lg",
 }: {
   signedOutLabel: string;
@@ -18,7 +18,7 @@ export default function SmartCTA({
   const signedIn = state.ready && !!state.user;
 
   return (
-    <ButtonLink href={signedIn ? "/dashboard" : "/signup"} size={size}>
+    <ButtonLink href={signedIn ? "/wallet" : "/signup"} size={size}>
       {signedIn ? signedInLabel : signedOutLabel}
     </ButtonLink>
   );

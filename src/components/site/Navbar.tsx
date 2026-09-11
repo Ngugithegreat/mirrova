@@ -6,7 +6,9 @@ import { usePathname, useRouter } from "next/navigation";
 import Logo from "@/components/ui/Logo";
 import { ButtonLink } from "@/components/ui/Button";
 import TraderAvatar from "@/components/ui/TraderAvatar";
+import AccountSwitcher from "@/components/site/AccountSwitcher";
 import { account, useAccountState } from "@/lib/accountClient";
+import { useRealAccountState } from "@/lib/realAccountClient";
 import { fmtMoney } from "@/lib/format";
 import { cx } from "@/lib/format";
 
@@ -19,8 +21,6 @@ const GUEST_LINKS = [
 ];
 
 const MEMBER_LINKS = [
-  { href: "/dashboard", label: "Portfolio" },
-  { href: "/wallet", label: "Real Wallet" },
   { href: "/traders", label: "Traders" },
   { href: "/learn", label: "Academy" },
 ];
@@ -39,8 +39,10 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const state = useAccountState();
+  const real = useRealAccountState();
   const signedIn = state.ready && !!state.user;
   const links = signedIn ? MEMBER_LINKS : GUEST_LINKS;
+  const isLive = pathname === "/wallet" || pathname.startsWith("/wallet/");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -100,9 +102,14 @@ export default function Navbar() {
         <div className="hidden items-center gap-3 lg:flex">
           {signedIn ? (
             <>
+              <AccountSwitcher />
               <div className="mr-1 hidden text-right xl:block">
-                <div className="text-[9px] uppercase tracking-wide text-ink-3">Practice balance</div>
-                <div className="tnum text-[13px] font-semibold text-ink">{fmtMoney(state.cashCents / 100, 2)}</div>
+                <div className="text-[9px] uppercase tracking-wide text-ink-3">
+                  {isLive ? "Live balance" : "Practice balance"}
+                </div>
+                <div className="tnum text-[13px] font-semibold text-ink">
+                  {isLive ? fmtMoney(real.realCashCents / 100, 2) : fmtMoney(state.cashCents / 100, 2)}
+                </div>
               </div>
               <ButtonLink href="/wallet" size="sm">
                 Deposit
@@ -122,21 +129,9 @@ export default function Navbar() {
                       <div className="truncate text-sm font-semibold text-ink">{state.user!.name}</div>
                       <div className="truncate text-xs text-ink-3">{state.user!.email}</div>
                     </div>
-                    <Link
-                      href="/dashboard"
-                      className="block rounded-lg px-3 py-2 text-sm text-ink-2 hover:bg-raised hover:text-ink"
-                    >
-                      Portfolio
-                    </Link>
-                    <Link
-                      href="/wallet"
-                      className="block rounded-lg px-3 py-2 text-sm text-ink-2 hover:bg-raised hover:text-ink"
-                    >
-                      Real wallet
-                    </Link>
                     <button
                       onClick={handleLogout}
-                      className="mt-0.5 block w-full rounded-lg border-t border-line-soft px-3 py-2 pt-2.5 text-left text-sm text-ink-2 hover:bg-raised hover:text-neg"
+                      className="mt-0.5 block w-full rounded-lg px-3 py-2 text-left text-sm text-ink-2 hover:bg-raised hover:text-neg"
                     >
                       Log out
                     </button>
@@ -178,13 +173,16 @@ export default function Navbar() {
       {open && (
         <div className="border-t border-line bg-bg px-5 pb-6 pt-3 lg:hidden">
           {signedIn && (
-            <Link href="/dashboard" className="flex items-center gap-3 border-b border-line-soft py-4">
-              <TraderAvatar name={state.user!.name} size="md" />
-              <div className="min-w-0">
-                <div className="truncate text-sm font-semibold text-ink">{state.user!.name}</div>
-                <div className="truncate text-xs text-ink-3">{state.user!.email}</div>
-              </div>
-            </Link>
+            <div className="flex items-center justify-between gap-3 border-b border-line-soft py-4">
+              <Link href="/wallet" className="flex min-w-0 items-center gap-3">
+                <TraderAvatar name={state.user!.name} size="md" />
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold text-ink">{state.user!.name}</div>
+                  <div className="truncate text-xs text-ink-3">{state.user!.email}</div>
+                </div>
+              </Link>
+              <AccountSwitcher />
+            </div>
           )}
           <nav className="flex flex-col" aria-label="Mobile">
             {links.map((l) => (
