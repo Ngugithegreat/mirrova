@@ -7,7 +7,6 @@ import { realAccount, useRealAccountState } from "@/lib/realAccountClient";
 import { TRADERS, getTrader } from "@/lib/traders";
 import { ACCOUNT_TYPES } from "@/lib/accountTypes";
 import { fmtMoney, cx } from "@/lib/format";
-import { ButtonLink } from "@/components/ui/Button";
 import TraderAvatar from "@/components/ui/TraderAvatar";
 import LiveSignalBadge from "@/components/traders/LiveSignalBadge";
 
@@ -54,21 +53,8 @@ export default function RealWallet() {
   const [withdrawBusy, setWithdrawBusy] = useState(false);
   const [withdrawMsg, setWithdrawMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
-  if (!account.ready || !real.ready) {
+  if (!account.ready || !account.user || !real.ready) {
     return <div className="mx-auto max-w-4xl px-5 py-24 text-center text-ink-3">Loading wallet…</div>;
-  }
-
-  if (!account.user) {
-    return (
-      <div className="mx-auto max-w-md px-5 py-24 text-center">
-        <h1 className="font-display text-3xl font-semibold">Sign in for your real wallet</h1>
-        <p className="mt-4 text-ink-2">Create a free account to deposit via M-Pesa and copy a strategist with real funds.</p>
-        <div className="mt-8 flex justify-center gap-3">
-          <ButtonLink href="/signup">Create account</ButtonLink>
-          <ButtonLink href="/login" variant="secondary">Log in</ButtonLink>
-        </div>
-      </div>
-    );
   }
 
   async function handleDeposit(e: React.FormEvent) {

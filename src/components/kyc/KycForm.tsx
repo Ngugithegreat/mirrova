@@ -102,17 +102,8 @@ export default function KycForm() {
     load();
   }
 
-  if (!account.ready || !data) {
+  if (!account.ready || !account.user || !data) {
     return <div className="mx-auto max-w-2xl px-5 py-24 text-center text-ink-3">Loading…</div>;
-  }
-
-  if (!account.user) {
-    return (
-      <div className="mx-auto max-w-md px-5 py-24 text-center">
-        <p className="text-ink-2">Sign in to verify your identity.</p>
-        <Link href="/login" className="mt-4 inline-block text-mint hover:underline">Log in</Link>
-      </div>
-    );
   }
 
   return (

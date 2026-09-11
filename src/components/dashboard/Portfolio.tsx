@@ -24,21 +24,8 @@ export default function Portfolio() {
   const state = useAccountState();
   const [stopping, setStopping] = useState<string | null>(null);
 
-  if (!state.ready) {
+  if (!state.ready || !state.user) {
     return <div className="mx-auto max-w-6xl px-5 py-24 text-center text-ink-3">Loading portfolio…</div>;
-  }
-
-  if (!state.user) {
-    return (
-      <div className="mx-auto max-w-md px-5 py-24 text-center">
-        <h1 className="font-display text-3xl font-semibold">Your portfolio awaits</h1>
-        <p className="mt-4 text-ink-2">Create a free account to start copying with a $100,000 practice balance.</p>
-        <div className="mt-8 flex justify-center gap-3">
-          <ButtonLink href="/signup">Create account</ButtonLink>
-          <ButtonLink href="/login" variant="secondary">Log in</ButtonLink>
-        </div>
-      </div>
-    );
   }
 
   const positions = state.copies.map((c) => {

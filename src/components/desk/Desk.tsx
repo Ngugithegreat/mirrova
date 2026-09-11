@@ -8,7 +8,6 @@ import { ACCOUNT_TYPES, unlockedDeskInstruments } from "@/lib/accountTypes";
 import { candles } from "@/lib/deskMarket";
 import CandleChart from "./CandleChart";
 import { fmtMoney, cx } from "@/lib/format";
-import { ButtonLink } from "@/components/ui/Button";
 
 function decimalsFor(sym: string) {
   return INSTRUMENTS.find((i) => i.sym === sym)?.decimals ?? 2;
@@ -41,21 +40,8 @@ export default function Desk() {
   const chartCandles = useMemo(() => (now ? candles(sym, 60, now) : []), [sym, now]);
   const livePrice = chartCandles.length ? chartCandles[chartCandles.length - 1].c : null;
 
-  if (!account.ready || !deskState.ready) {
+  if (!account.ready || !account.user || !deskState.ready) {
     return <div className="mx-auto max-w-6xl px-5 py-24 text-center text-ink-3">Loading the Desk…</div>;
-  }
-
-  if (!account.user) {
-    return (
-      <div className="mx-auto max-w-md px-5 py-24 text-center">
-        <h1 className="font-display text-3xl font-semibold">Practise on the Desk</h1>
-        <p className="mt-4 text-ink-2">Create a free account for a $100,000 practice balance and self-directed trading.</p>
-        <div className="mt-8 flex justify-center gap-3">
-          <ButtonLink href="/signup">Create account</ButtonLink>
-          <ButtonLink href="/login" variant="secondary">Log in</ButtonLink>
-        </div>
-      </div>
-    );
   }
 
   const accountType = account.accountType;

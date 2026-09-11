@@ -18,7 +18,7 @@ export default function SmartCTA({
   const signedIn = state.ready && !!state.user;
 
   return (
-    <ButtonLink href={signedIn ? "/wallet" : "/signup"} size={size}>
+    <ButtonLink href={signedIn ? "/dashboard" : "/signup"} size={size}>
       {signedIn ? signedInLabel : signedOutLabel}
     </ButtonLink>
   );
