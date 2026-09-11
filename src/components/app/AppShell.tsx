@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { account, useAccountState } from "@/lib/accountClient";
 import { useRealAccountState } from "@/lib/realAccountClient";
+import { useSessionMode, setSessionMode } from "@/lib/sessionMode";
 import { LogoMark } from "@/components/ui/Logo";
 import TraderAvatar from "@/components/ui/TraderAvatar";
 import { ButtonLink } from "@/components/ui/Button";
@@ -82,7 +83,8 @@ function ShellSkeleton() {
 function Sidebar({ pathname, mobile, onNavigate }: { pathname: string; mobile?: boolean; onNavigate?: () => void }) {
   const state = useAccountState();
   const real = useRealAccountState();
-  const isLive = pathname === "/wallet" || pathname.startsWith("/wallet/");
+  const mode = useSessionMode();
+  const isLive = mode === "real";
   const copyCount = isLive ? (real.allocation ? 1 : 0) : state.copies.length;
 
   return (
@@ -142,7 +144,8 @@ function TopBar({ pathname }: { pathname: string }) {
   const router = useRouter();
   const state = useAccountState();
   const real = useRealAccountState();
-  const isLive = pathname === "/wallet" || pathname.startsWith("/wallet/");
+  const mode = useSessionMode();
+  const isLive = mode === "real";
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -203,9 +206,37 @@ function TopBar({ pathname }: { pathname: string }) {
               </div>
             </div>
           ))}
-          <span className={cx("ml-2 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide", isLive ? "bg-mint/10 text-mint" : "bg-warn/10 text-warn")}>
+          <span className={cx("rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide", isLive ? "bg-mint/10 text-mint" : "bg-warn/10 text-warn")}>
             {isLive ? "Real account" : "Demo · practice funds"}
           </span>
+
+          <div className="relative ml-1 flex items-center rounded-full border border-line bg-raised/60 p-1">
+            <span
+              aria-hidden="true"
+              className={cx(
+                "absolute inset-y-1 left-1 w-[48px] rounded-full bg-gradient-to-r from-violet via-mint to-fuchsia transition-transform duration-200 ease-out",
+                isLive ? "translate-x-0" : "translate-x-[52px]"
+              )}
+            />
+            <button
+              onClick={() => setSessionMode("real")}
+              className={cx(
+                "relative z-10 w-[48px] rounded-full py-1.5 text-[10px] font-bold uppercase tracking-wide transition-colors",
+                isLive ? "text-[#06060c]" : "text-ink-2 hover:text-ink"
+              )}
+            >
+              Real
+            </button>
+            <button
+              onClick={() => setSessionMode("demo")}
+              className={cx(
+                "relative z-10 w-[48px] rounded-full py-1.5 text-[10px] font-bold uppercase tracking-wide transition-colors",
+                !isLive ? "text-[#06060c]" : "text-ink-2 hover:text-ink"
+              )}
+            >
+              Demo
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">

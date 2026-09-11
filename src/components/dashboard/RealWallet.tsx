@@ -6,17 +6,8 @@ import { useAccountState } from "@/lib/accountClient";
 import { realAccount, useRealAccountState } from "@/lib/realAccountClient";
 import { TRADERS, getTrader } from "@/lib/traders";
 import { ACCOUNT_TYPES } from "@/lib/accountTypes";
-import { fmtMoney, cx } from "@/lib/format";
+import { fmtMoney, timeAgo } from "@/lib/format";
 import TraderAvatar from "@/components/ui/TraderAvatar";
-import LiveSignalBadge from "@/components/traders/LiveSignalBadge";
-
-function timeAgo(iso: string) {
-  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
-}
 
 const STATUS_TONE: Record<string, string> = {
   completed: "bg-pos/10 text-pos",
@@ -352,7 +343,6 @@ export default function RealWallet() {
                   <div>
                     <div className="font-medium text-ink">{allocTrader.name}</div>
                     <div className="text-xs text-ink-3">{allocTrader.strategy}</div>
-                    <div className="mt-1.5"><LiveSignalBadge trader={allocTrader} /></div>
                   </div>
                 </Link>
                 <div className="mt-4 border-t border-line-soft pt-4">
@@ -362,31 +352,9 @@ export default function RealWallet() {
                   </div>
                 </div>
 
-                <div className="mt-4 rounded-xl border border-line-soft bg-raised/30 p-4">
-                  <div className="text-[11px] uppercase tracking-wide text-ink-3">Live position</div>
-                  {real.engine.open ? (
-                    <div className="mt-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-ink-2">
-                          {real.engine.open.side === "long" ? "Long" : "Short"} {real.engine.open.instrument}
-                        </span>
-                        <span className={cx("tnum font-semibold", real.engine.open.unrealizedPnlCents >= 0 ? "text-pos" : "text-neg")}>
-                          {real.engine.open.unrealizedPnlCents >= 0 ? "+" : "−"}
-                          {fmtMoney(Math.abs(real.engine.open.unrealizedPnlCents) / 100, 2)}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex items-center justify-between text-xs text-ink-3">
-                        <span>Size {fmtMoney(real.engine.open.sizeUsdCents / 100, 2)}</span>
-                        <span>{timeAgo(real.engine.open.openedAt)}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="mt-2 text-sm text-ink-3">Waiting for the next trade…</p>
-                  )}
-                  <p className="mt-3 text-[11px] leading-relaxed text-ink-3">
-                    Illustrative — this simulated P&amp;L is never settled to your real balance.
-                  </p>
-                </div>
+                <Link href="/dashboard" className="mt-4 block text-sm font-medium text-mint hover:underline">
+                  See live P&amp;L on Overview →
+                </Link>
 
                 <button
                   onClick={handleDeallocate}
@@ -398,25 +366,6 @@ export default function RealWallet() {
                 <p className="mt-3 text-[11px] leading-relaxed text-ink-3">
                   Stopping returns your original allocated principal to your available balance.
                 </p>
-
-                {real.engine.recentlyClosed.length > 0 && (
-                  <div className="mt-5 border-t border-line-soft pt-4">
-                    <div className="text-[11px] uppercase tracking-wide text-ink-3">Recently closed (illustrative)</div>
-                    <div className="mt-2 space-y-1.5">
-                      {real.engine.recentlyClosed.map((c, i) => (
-                        <div key={i} className="flex items-center justify-between text-xs">
-                          <span className="text-ink-3">
-                            {c.side === "long" ? "Long" : "Short"} {c.instrument}
-                          </span>
-                          <span className={cx("tnum font-medium", c.realizedPnlCents >= 0 ? "text-pos" : "text-neg")}>
-                            {c.realizedPnlCents >= 0 ? "+" : "−"}
-                            {fmtMoney(Math.abs(c.realizedPnlCents) / 100, 2)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             ) : (
               <div className="mt-4">

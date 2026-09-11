@@ -4,21 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { account, useAccountState } from "@/lib/accountClient";
 import { getTrader, traderStats, equitySeries } from "@/lib/traders";
-import { fmtMoney, fmtPct } from "@/lib/format";
+import { fmtMoney, fmtPct, timeAgo, greeting } from "@/lib/format";
 import TraderAvatar from "@/components/ui/TraderAvatar";
 import RiskMeter from "@/components/ui/RiskMeter";
 import Sparkline from "@/components/charts/Sparkline";
 import { ButtonLink } from "@/components/ui/Button";
 import CountUp from "@/components/motion/CountUp";
 import LiveSignalBadge from "@/components/traders/LiveSignalBadge";
-
-function timeAgo(iso: string) {
-  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
-}
 
 export default function Portfolio() {
   const state = useAccountState();
@@ -53,12 +45,12 @@ export default function Portfolio() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm text-ink-3">
-            Welcome back, {state.user.name.split(" ")[0]}
+            {greeting()}, {state.user.name.split(" ")[0]}
             <span className="ml-2 rounded-full border border-warn/40 bg-warn/10 px-2 py-0.5 text-[11px] font-medium text-warn">
               Practice mode
             </span>
           </p>
-          <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight">Portfolio</h1>
+          <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight">Overview</h1>
         </div>
         <Link href="/wallet" className="text-sm font-medium text-mint transition-colors hover:underline">
           Real wallet →

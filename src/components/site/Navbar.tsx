@@ -9,6 +9,7 @@ import TraderAvatar from "@/components/ui/TraderAvatar";
 import AccountSwitcher from "@/components/site/AccountSwitcher";
 import { account, useAccountState } from "@/lib/accountClient";
 import { useRealAccountState } from "@/lib/realAccountClient";
+import { useSessionMode } from "@/lib/sessionMode";
 import { fmtMoney } from "@/lib/format";
 import { cx } from "@/lib/format";
 
@@ -43,7 +44,8 @@ export default function Navbar() {
   const real = useRealAccountState();
   const signedIn = state.ready && !!state.user;
   const links = signedIn ? MEMBER_LINKS : GUEST_LINKS;
-  const isLive = pathname === "/wallet" || pathname.startsWith("/wallet/");
+  const mode = useSessionMode();
+  const isLive = mode === "real";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
