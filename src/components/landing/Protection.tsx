@@ -37,7 +37,7 @@ export default function Protection() {
             Your capital, defended on every layer
           </h2>
           <p className={`mt-6 text-lg leading-relaxed ${IVORY_2}`}>
-            Copy trading only works when the copier is protected better than the trader. Mirrova was
+            Copy trading only works when the copier is protected better than the trader. Asport Traders was
             engineered around that asymmetry: your money stays yours, your limits are enforced by the
             platform — not by trust — and your downside on every relationship is hard-capped.
           </p>

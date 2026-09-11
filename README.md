@@ -1,6 +1,6 @@
-# Mirrova — professional copy trading platform
+# Asport Traders — professional copy trading platform
 
-Mirrova is a premium copy-trading platform: browse rigorously vetted traders with fully transparent
+Asport Traders is a premium copy-trading platform: browse rigorously vetted traders with fully transparent
 track records, copy their strategies proportionally in one click, and stay protected with
 institutional-grade risk controls (copy stop-loss, negative balance protection, segregated funds).
 

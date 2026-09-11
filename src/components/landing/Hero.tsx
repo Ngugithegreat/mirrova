@@ -43,7 +43,7 @@ export default function Hero() {
           </h1>
 
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-2">
-            Mirrova mirrors the strategies of rigorously vetted traders into your account in real time —
+            Asport Traders mirrors the strategies of rigorously vetted traders into your account in real time —
             proportional to your investment, with risk controls you set and can change at any moment.
           </p>
 

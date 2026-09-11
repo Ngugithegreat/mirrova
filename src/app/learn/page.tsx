@@ -9,7 +9,7 @@ import { ARTICLES } from "@/lib/articles";
 export const metadata: Metadata = {
   title: "Academy",
   description:
-    "The Mirrova Academy — clear, practical guides to copy trading: how it works, choosing traders, managing risk, understanding fees.",
+    "The Asport Traders Academy — clear, practical guides to copy trading: how it works, choosing traders, managing risk, understanding fees.",
 };
 
 const LEVEL_TONE: Record<string, string> = {

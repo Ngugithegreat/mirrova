@@ -8,7 +8,7 @@ import Auroras from "@/components/motion/Auroras";
 export const metadata: Metadata = {
   title: "Pricing & fees",
   description:
-    "Mirrova's complete fee schedule: $0 management fees, free deposits and withdrawals, performance fees only on profits above a high-water mark.",
+    "Asport Traders' complete fee schedule: $0 management fees, free deposits and withdrawals, performance fees only on profits above a high-water mark.",
 };
 
 const SCHEDULE: { section: string; rows: [string, string, string][] }[] = [

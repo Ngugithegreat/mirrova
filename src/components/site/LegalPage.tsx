@@ -39,7 +39,7 @@ export default function LegalPage({
             ))}
           </div>
           <p className="mt-14 rounded-[3px] border border-warn/30 bg-warn/8 p-5 text-sm leading-relaxed text-ink-2">
-            This document is a template for the Mirrova platform preview and is not legal advice. Before
+            This document is a template for the Asport Traders platform preview and is not legal advice. Before
             operating a live investment service, have qualified counsel adapt these terms to the licences
             and regulations of each jurisdiction you serve.
           </p>

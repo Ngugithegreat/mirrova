@@ -90,7 +90,7 @@ export async function stkPush(phone: string, amountKes: number, accountRef: stri
         PhoneNumber: phone,
         CallBackURL: callbackUrl,
         AccountReference: accountRef.slice(0, 12),
-        TransactionDesc: "Mirrova wallet deposit",
+        TransactionDesc: "Asport Traders wallet deposit",
       }),
     });
     const data = await res.json();

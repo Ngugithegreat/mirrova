@@ -24,7 +24,7 @@ const COLS: { title: string; links: { href: string; label: string }[] }[] = [
   {
     title: "Company",
     links: [
-      { href: "/about", label: "About Mirrova" },
+      { href: "/about", label: "About Asport Traders" },
       { href: "/about#security", label: "Security" },
       { href: "/about#contact", label: "Contact" },
     ],
@@ -81,7 +81,7 @@ export default function Footer() {
             mode.
           </p>
           <div className="mt-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-            <p className="text-xs text-ink-3">© {new Date().getFullYear()} Mirrova. All rights reserved.</p>
+            <p className="text-xs text-ink-3">© {new Date().getFullYear()} Asport Traders. All rights reserved.</p>
             <div className="flex gap-6 text-xs text-ink-3">
               <Link href="/legal/terms" className="hover:text-ink-2">Terms</Link>
               <Link href="/legal/privacy" className="hover:text-ink-2">Privacy</Link>
@@ -92,7 +92,7 @@ export default function Footer() {
       </div>
       <div className="overflow-hidden" aria-hidden="true">
         <div className="font-display mx-auto max-w-[1200px] select-none px-5 text-[19vw] font-semibold leading-[0.72] tracking-tight text-ink/5 lg:px-8 lg:text-[15rem]">
-          Mirrova
+          Asport Traders
         </div>
       </div>
     </footer>

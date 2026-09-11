@@ -8,7 +8,7 @@ export default function RiskPage() {
     <LegalPage
       title="Risk Disclosure"
       updated="September 2026"
-      intro="Copy trading can generate losses as well as profits. Before using Mirrova you must understand and accept the risks described here. If anything in this document is unclear, do not trade — seek independent financial advice first."
+      intro="Copy trading can generate losses as well as profits. Before using Asport Traders you must understand and accept the risks described here. If anything in this document is unclear, do not trade — seek independent financial advice first."
       sections={[
         {
           heading: "Risk of loss",
@@ -49,7 +49,7 @@ export default function RiskPage() {
         {
           heading: "No advice",
           body: [
-            "Nothing on Mirrova — including trader rankings, risk scores, editorial badges or Academy content — constitutes investment advice or a personal recommendation. The decision to copy any trader, and in what amount, is yours alone.",
+            "Nothing on Asport Traders — including trader rankings, risk scores, editorial badges or Academy content — constitutes investment advice or a personal recommendation. The decision to copy any trader, and in what amount, is yours alone.",
           ],
         },
       ]}

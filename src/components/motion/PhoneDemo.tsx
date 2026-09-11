@@ -235,7 +235,7 @@ export default function PhoneDemo() {
                 <rect x="1" y="1" width="38" height="38" rx="11" fill="rgba(139,92,246,0.12)" stroke="url(#pdl)" strokeWidth="2"/>
                 <path d="M10 28 V15 l6 8 4 -11 4 11 6 -8 v13" fill="none" stroke="url(#pdl)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              <span className="font-display text-[13px] font-semibold text-ink">mirrova</span>
+              <span className="font-display text-[13px] font-semibold text-ink">asport traders</span>
             </div>
             <div className="text-right">
               <div className="text-[8px] uppercase tracking-wide text-ink-3">Balance</div>

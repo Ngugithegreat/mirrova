@@ -8,7 +8,7 @@ export default function PrivacyPage() {
     <LegalPage
       title="Privacy Policy"
       updated="September 2026"
-      intro="This policy explains what personal data Mirrova collects, why we collect it, how it is protected, and the rights you have over it."
+      intro="This policy explains what personal data Asport Traders collects, why we collect it, how it is protected, and the rights you have over it."
       sections={[
         {
           heading: "Data we collect",

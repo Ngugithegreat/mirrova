@@ -25,7 +25,7 @@ export const ARTICLES: Article[] = [
         heading: "Copy trading vs. social trading vs. mirror trading",
         paragraphs: [
           "These three terms are often mixed up, but they describe different levels of automation. Social trading is the broadest: platforms where traders share ideas, positions and commentary, and you decide manually what to act on. Mirror trading is the oldest form: you subscribe to a strategy (often algorithmic) and your account executes its signals rigidly.",
-          "Copy trading sits in the sweet spot: you follow a real person's live decisions with full automation, but you retain control — you can pause, exit, cap losses, or adjust your allocation at any time. On Mirrova, copying is always tied to a specific human strategist with a verified public record.",
+          "Copy trading sits in the sweet spot: you follow a real person's live decisions with full automation, but you retain control — you can pause, exit, cap losses, or adjust your allocation at any time. On Asport Traders, copying is always tied to a specific human strategist with a verified public record.",
         ],
       },
       {
@@ -77,7 +77,7 @@ export const ARTICLES: Article[] = [
       {
         heading: "3. Read the process, not just the numbers",
         paragraphs: [
-          "A trader worth copying can explain what they do in two sentences, and their history should look like that explanation. If the bio says 'conservative dividend investing' but the trade log shows leveraged oil futures, walk away. On Mirrova, strategy drift is grounds for suspension — but your own reading is the first filter.",
+          "A trader worth copying can explain what they do in two sentences, and their history should look like that explanation. If the bio says 'conservative dividend investing' but the trade log shows leveraged oil futures, walk away. On Asport Traders, strategy drift is grounds for suspension — but your own reading is the first filter.",
         ],
         bullets: [
           "Does the stated strategy match the actual instruments traded?",
@@ -155,14 +155,14 @@ export const ARTICLES: Article[] = [
       {
         heading: "Performance fees and the high-water mark",
         paragraphs: [
-          "A performance fee is a percentage of the profit a trader generates for you — on Mirrova, between 10% and 30%, set by each trader. The crucial protection is the high-water mark: fees are only charged on profits above your allocation's previous peak.",
+          "A performance fee is a percentage of the profit a trader generates for you — on Asport Traders, between 10% and 30%, set by each trader. The crucial protection is the high-water mark: fees are only charged on profits above your allocation's previous peak.",
           "Worked example: you copy with $2,000 at a 20% performance fee. Month one, the copy grows to $2,300 — you pay 20% of the $300 gain ($60). Your high-water mark is now $2,300. Month two, it falls to $2,100 — you pay nothing. Month three it recovers to $2,250 — still below the $2,300 mark, still nothing. Only when your value exceeds $2,300 does the meter start again. The trader cannot earn twice on the same gain, and earns zero for digging you out of a hole they created.",
         ],
       },
       {
         heading: "Spreads: the fee inside the price",
         paragraphs: [
-          "Every trade executes at a price slightly worse than the mid-market price — the spread. It's how execution is financed on commission-free platforms. Spreads matter more the more actively your copied trader trades: a scalper making ten trades a day incurs spread costs that a monthly rebalancer doesn't. Mirrova shows each instrument's spread before you copy; factor it in when comparing a high-frequency and a low-frequency strategist with similar returns.",
+          "Every trade executes at a price slightly worse than the mid-market price — the spread. It's how execution is financed on commission-free platforms. Spreads matter more the more actively your copied trader trades: a scalper making ten trades a day incurs spread costs that a monthly rebalancer doesn't. Asport Traders shows each instrument's spread before you copy; factor it in when comparing a high-frequency and a low-frequency strategist with similar returns.",
         ],
       },
       {
@@ -180,7 +180,7 @@ export const ARTICLES: Article[] = [
   },
   {
     slug: "becoming-a-pro-trader",
-    title: "Becoming a Pro Trader: how strategists earn on Mirrova",
+    title: "Becoming a Pro Trader: how strategists earn on Asport Traders",
     teaser: "The vetting gauntlet, how performance fees compound with copiers, and what separates traders who build a 5,000-copier following from those who stall at 50.",
     minutes: 9,
     level: "Advanced",
@@ -193,7 +193,7 @@ export const ARTICLES: Article[] = [
       {
         heading: "The vetting gauntlet",
         paragraphs: [
-          "Mirrova lists fewer than 2% of applicants. The bar exists because copiers commit real money to your decisions, and because a leaderboard full of lucky coin-flippers destroys the platform for everyone. The requirements:",
+          "Asport Traders lists fewer than 2% of applicants. The bar exists because copiers commit real money to your decisions, and because a leaderboard full of lucky coin-flippers destroys the platform for everyone. The requirements:",
         ],
         bullets: [
           "A verified, continuous 12-month track record — no resets, no cherry-picked accounts, independently confirmed.",
@@ -245,7 +245,7 @@ export const ARTICLES: Article[] = [
       {
         heading: "The meta-rule",
         paragraphs: [
-          "Every mistake above is a form of improvisation. The copiers who do best on Mirrova write their rules down before allocating a dollar — allocation sizes, stop levels, review cadence, exit conditions — and then do something surprisingly hard: nothing. The strategy is the trader's job. The structure is yours.",
+          "Every mistake above is a form of improvisation. The copiers who do best on Asport Traders write their rules down before allocating a dollar — allocation sizes, stop levels, review cadence, exit conditions — and then do something surprisingly hard: nothing. The strategy is the trader's job. The structure is yours.",
         ],
       },
     ],

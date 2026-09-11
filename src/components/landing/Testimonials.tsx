@@ -3,7 +3,7 @@ import TraderAvatar from "@/components/ui/TraderAvatar";
 
 const LEAD_QUOTE = {
   quote:
-    "Every platform shows you the winners. Mirrova shows you the drawdowns, the losing months, the risk score — and that is exactly why I trust it with real money. I believe what I can verify.",
+    "Every platform shows you the winners. Asport Traders shows you the drawdowns, the losing months, the risk score — and that is exactly why I trust it with real money. I believe what I can verify.",
   name: "Samuel K.",
   role: "Copying five strategists · member since 2022",
 };
@@ -19,7 +19,7 @@ const QUOTES = [
     quote:
       "As a strategist, the vetting was genuinely hard — they audited a year of my statements before listing me. That's why copiers here commit real capital.",
     name: "Chloé Martin",
-    role: "Pro Trader on Mirrova",
+    role: "Pro Trader on Asport Traders",
   },
 ];
 

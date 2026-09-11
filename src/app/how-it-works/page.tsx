@@ -9,7 +9,7 @@ import { fmtMoney } from "@/lib/format";
 export const metadata: Metadata = {
   title: "How it works",
   description:
-    "The exact mechanics of copy trading on Mirrova: proportional mirroring, execution, risk controls, fees and exits — explained end to end.",
+    "The exact mechanics of copy trading on Asport Traders: proportional mirroring, execution, risk controls, fees and exits — explained end to end.",
 };
 
 const STEPS = [
@@ -48,7 +48,7 @@ export default function HowItWorksPage() {
           <Auroras />
           <div className="relative mx-auto max-w-7xl px-5 py-14 lg:px-8">
             <p className="eyebrow">The mechanics</p>
-            <h1 className="font-display mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">How copy trading works on Mirrova</h1>
+            <h1 className="font-display mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">How copy trading works on Asport Traders</h1>
             <p className="mt-4 max-w-2xl text-lg text-ink-2">
               End to end, with the details other platforms gloss over. Five minutes to read; a lifetime of
               not being surprised.

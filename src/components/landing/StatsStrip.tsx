@@ -17,7 +17,7 @@ export default function StatsStrip() {
             what {fmtCount(PLATFORM_STATS.copiers)} investors practise here every day.
           </p>
           <p className="mt-6 max-w-lg text-[15px] leading-relaxed text-ink-2">
-            Every strategist on Mirrova shows a complete, unresettable history — the drawdowns beside the
+            Every strategist on Asport Traders shows a complete, unresettable history — the drawdowns beside the
             gains. You choose the people; the platform executes with precision and holds the line you set.
           </p>
         </Reveal>

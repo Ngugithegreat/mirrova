@@ -8,12 +8,12 @@ export default function TermsPage() {
     <LegalPage
       title="Terms of Service"
       updated="September 2026"
-      intro="These Terms govern your use of the Mirrova platform, website and related services. By creating an account or using the platform you agree to be bound by them. Please read them together with our Privacy Policy and Risk Disclosure."
+      intro="These Terms govern your use of the Asport Traders platform, website and related services. By creating an account or using the platform you agree to be bound by them. Please read them together with our Privacy Policy and Risk Disclosure."
       sections={[
         {
           heading: "The service",
           body: [
-            "Mirrova provides a copy trading platform that allows users ('Copiers') to automatically replicate the trading activity of listed strategists ('Pro Traders') in their own accounts. Mirrova does not provide investment advice, portfolio management or personal recommendations. The availability of a trader on the platform is not an endorsement of their strategy or a prediction of performance.",
+            "Asport Traders provides a copy trading platform that allows users ('Copiers') to automatically replicate the trading activity of listed strategists ('Pro Traders') in their own accounts. Asport Traders does not provide investment advice, portfolio management or personal recommendations. The availability of a trader on the platform is not an endorsement of their strategy or a prediction of performance.",
           ],
         },
         {
@@ -50,7 +50,7 @@ export default function TermsPage() {
         {
           heading: "Limitation of liability",
           body: [
-            "To the maximum extent permitted by law, Mirrova is not liable for trading losses arising from copied strategies, market conditions, or your configuration choices; nor for indirect or consequential damages. Nothing in these Terms excludes liability that cannot be excluded by law.",
+            "To the maximum extent permitted by law, Asport Traders is not liable for trading losses arising from copied strategies, market conditions, or your configuration choices; nor for indirect or consequential damages. Nothing in these Terms excludes liability that cannot be excluded by law.",
           ],
         },
         {

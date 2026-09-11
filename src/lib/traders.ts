@@ -150,7 +150,7 @@ const CURATED: Curated[] = [
     slug: "elena-vasquez", name: "Elena Vásquez", handle: "@northquant", country: "Spain", flag: "🇪🇸",
     strategy: "Systematic Index Momentum", archetype: "balanced", markets: ["Indices", "Stocks"],
     bio: "Former quantitative analyst at a Madrid asset manager. Runs a rules-based momentum model on major indices with strict volatility targeting — no discretion, no exceptions. Every position is sized so a single bad week cannot undo a good quarter.",
-    copiers: 6842, aum: 24800000, joined: "Feb 2022", badges: ["Editor's pick", "4 yrs on Mirrova"], muAdj: 0.4,
+    copiers: 6842, aum: 24800000, joined: "Feb 2022", badges: ["Editor's pick", "4 yrs on Asport Traders"], muAdj: 0.4,
   },
   {
     slug: "marcus-oduya", name: "Marcus Oduya", handle: "@steadyafrica", country: "Nigeria", flag: "🇳🇬",
@@ -215,7 +215,7 @@ const CURATED: Curated[] = [
   {
     slug: "isabella-rossi", name: "Isabella Rossi", handle: "@milanmacro", country: "Italy", flag: "🇮🇹",
     strategy: "Global Multi-Asset", archetype: "balanced", markets: ["Indices", "Commodities", "Forex"],
-    bio: "A diversified sleeve across equities, gold and FX, tilted by a simple regime model. Isabella runs the closest thing Mirrova has to an all-in-one portfolio — many copiers make her their core holding.",
+    bio: "A diversified sleeve across equities, gold and FX, tilted by a simple regime model. Isabella runs the closest thing Asport Traders has to an all-in-one portfolio — many copiers make her their core holding.",
     copiers: 8034, aum: 31200000, joined: "Dec 2021", badges: ["Editor's pick", "Most copied overall"], muAdj: 0.3,
   },
 ];
@@ -253,7 +253,7 @@ function buildGenerated(i: number): Trader {
   const joinedMonth = pick(rnd, ["Jan", "Mar", "Apr", "Jun", "Aug", "Oct", "Nov"]);
   return {
     slug, name, handle: `@${slug.replace("-", "")}`, country, flag, strategy, style: arch.style, markets,
-    bio: `${first} runs a ${strategy.toLowerCase()} book focused on ${markets.join(" and ").toLowerCase()}, with position sizing capped by Mirrova's risk framework. Full trade history and monthly figures below are net of fees.`,
+    bio: `${first} runs a ${strategy.toLowerCase()} book focused on ${markets.join(" and ").toLowerCase()}, with position sizing capped by Asport Traders' risk framework. Full trade history and monthly figures below are net of fees.`,
     riskScore: Math.round(between(rnd, arch.risk)),
     copiers,
     aum: Math.round(copiers * between(rnd, [1800, 5200])),

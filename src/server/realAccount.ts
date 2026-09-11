@@ -21,7 +21,7 @@ export async function initiateDeposit(
   if (!Number.isFinite(amountKes) || amountKes < 10) return fail("Minimum deposit is KES 10.");
   if (amountKes > 150_000) return fail("Maximum per transaction is KES 150,000.");
 
-  const push = await stkPush(phone, amountKes, "Mirrova");
+  const push = await stkPush(phone, amountKes, "Asport Traders");
   if (!push.ok) return fail(push.error);
 
   await db.insert(payments).values({

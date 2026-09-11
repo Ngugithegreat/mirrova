@@ -10,13 +10,13 @@ import { fmtCompact, fmtCount } from "@/lib/format";
 export const metadata: Metadata = {
   title: "About",
   description:
-    "Why Mirrova exists: radical transparency, copier-first protection, and a leaderboard that can't be gamed.",
+    "Why Asport Traders exists: radical transparency, copier-first protection, and a leaderboard that can't be gamed.",
 };
 
 const PRINCIPLES = [
   {
     title: "Transparency is non-negotiable",
-    body: "Track records on Mirrova cannot be reset, hidden or cherry-picked. If a trader has a −20% month, every prospective copier sees it forever. We believe informed capital is the only capital worth having.",
+    body: "Track records on Asport Traders cannot be reset, hidden or cherry-picked. If a trader has a −20% month, every prospective copier sees it forever. We believe informed capital is the only capital worth having.",
   },
   {
     title: "The copier is the customer",
@@ -40,13 +40,13 @@ export default function AboutPage() {
         <div className="relative overflow-hidden border-b border-line-soft bg-surface/40">
           <Auroras />
           <div className="relative mx-auto max-w-7xl px-5 py-16 lg:px-8">
-            <p className="eyebrow">About Mirrova</p>
+            <p className="eyebrow">About Asport Traders</p>
             <h1 className="font-display mt-3 max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl sm:leading-[1.1]">
               Skill shouldn&apos;t be gated by who you know
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-relaxed text-ink-2">
               For decades, access to great traders meant hedge-fund minimums and country-club
-              introductions. Mirrova was built on a simpler idea: verify the skill, publish the record —
+              introductions. Asport Traders was built on a simpler idea: verify the skill, publish the record —
               drawdowns included — and let anyone allocate to it from $100, with protections institutions
               would envy.
             </p>
@@ -106,17 +106,17 @@ export default function AboutPage() {
               <div className="mt-5 grid gap-6 text-sm sm:grid-cols-3">
                 <div>
                   <div className="text-ink-3">Support</div>
-                  <div className="mt-1 font-medium text-ink">support@mirrova.example</div>
+                  <div className="mt-1 font-medium text-ink">support@asporttraders.com</div>
                   <div className="mt-0.5 text-ink-2">24/7, replies within 2 hours</div>
                 </div>
                 <div>
                   <div className="text-ink-3">Trader applications</div>
-                  <div className="mt-1 font-medium text-ink">pro@mirrova.example</div>
+                  <div className="mt-1 font-medium text-ink">pro@asporttraders.com</div>
                   <div className="mt-0.5 text-ink-2">Include your verified track record</div>
                 </div>
                 <div>
                   <div className="text-ink-3">Press</div>
-                  <div className="mt-1 font-medium text-ink">press@mirrova.example</div>
+                  <div className="mt-1 font-medium text-ink">press@asporttraders.com</div>
                 </div>
               </div>
               <p className="mt-6 text-xs text-ink-3">
@@ -127,7 +127,7 @@ export default function AboutPage() {
           </Reveal>
 
           <div className="mt-16 text-center">
-            <ButtonLink href="/signup" size="lg">Join Mirrova</ButtonLink>
+            <ButtonLink href="/signup" size="lg">Join Asport Traders</ButtonLink>
           </div>
         </div>
       </main>

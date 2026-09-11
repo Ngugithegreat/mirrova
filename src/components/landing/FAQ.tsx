@@ -6,7 +6,7 @@ import Reveal from "@/components/ui/Reveal";
 const QA: { q: string; a: string }[] = [
   {
     q: "What exactly is copy trading?",
-    a: "Copy trading lets you automatically replicate the trades of another investor. When you copy a trader on Mirrova, every position they open or close is mirrored in your own account, sized proportionally to the amount you allocated. If they put 5% of their portfolio into an asset, 5% of your allocation goes into the same asset at the same moment. You keep full ownership and control of your account throughout.",
+    a: "Copy trading lets you automatically replicate the trades of another investor. When you copy a trader on Asport Traders, every position they open or close is mirrored in your own account, sized proportionally to the amount you allocated. If they put 5% of their portfolio into an asset, 5% of your allocation goes into the same asset at the same moment. You keep full ownership and control of your account throughout.",
   },
   {
     q: "How much money do I need to start?",
@@ -34,7 +34,7 @@ const QA: { q: string; a: string }[] = [
   },
   {
     q: "Is copy trading safe? Will I definitely make money?",
-    a: "No investment guarantees profit, and copy trading is no exception — you are taking on the market risk of the strategies you copy, and past performance does not predict future results. What Mirrova provides is transparency and control: verified histories, enforced risk limits, and instant exit. Only invest money you can afford to lose.",
+    a: "No investment guarantees profit, and copy trading is no exception — you are taking on the market risk of the strategies you copy, and past performance does not predict future results. What Asport Traders provides is transparency and control: verified histories, enforced risk limits, and instant exit. Only invest money you can afford to lose.",
   },
 ];
 

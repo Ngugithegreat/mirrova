@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!t) return {};
   return {
     title: `${t.name} — ${t.strategy}`,
-    description: `${t.name}'s verified track record on Mirrova: monthly returns, drawdown, risk score and open strategy. Copy from $${t.minCopy}.`,
+    description: `${t.name}'s verified track record on Asport Traders: monthly returns, drawdown, risk score and open strategy. Copy from $${t.minCopy}.`,
   };
 }
 
@@ -81,7 +81,7 @@ export default async function TraderPage({ params }: { params: Promise<{ slug: s
                     ))}
                   </div>
                   <p className="mt-2 text-ink-2">
-                    {t.handle} · {t.flag} {t.country} · {t.strategy} · On Mirrova since {t.joined}
+                    {t.handle} · {t.flag} {t.country} · {t.strategy} · On Asport Traders since {t.joined}
                   </p>
                   <div className="mt-3">
                     <RiskMeter score={t.riskScore} />

@@ -14,21 +14,21 @@ const siteUrl =
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Mirrova — Copy the world's sharpest traders",
-    template: "%s · Mirrova",
+    default: "Asport Traders — Copy the world's sharpest traders",
+    template: "%s · Asport Traders",
   },
   description:
-    "Mirrova is the professional copy trading platform. Browse vetted traders with fully transparent track records, copy their strategies in one click, and stay protected with institutional-grade risk controls.",
+    "Asport Traders is the professional copy trading platform. Browse vetted traders with fully transparent track records, copy their strategies in one click, and stay protected with institutional-grade risk controls.",
   openGraph: {
-    title: "Mirrova — Copy the world's sharpest traders",
+    title: "Asport Traders — Copy the world's sharpest traders",
     description:
       "Browse vetted traders with transparent track records and mirror their strategies automatically, with risk controls built in.",
-    siteName: "Mirrova",
+    siteName: "Asport Traders",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Mirrova — Copy the world's sharpest traders",
+    title: "Asport Traders — Copy the world's sharpest traders",
     description: "Professional copy trading with transparent track records and built-in risk controls.",
   },
 };

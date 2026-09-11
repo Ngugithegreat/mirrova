@@ -10,7 +10,7 @@ import { fmtCount } from "@/lib/format";
 export const metadata: Metadata = {
   title: "Top Traders",
   description:
-    "Browse every vetted trader on Mirrova — full track records, risk scores, drawdowns and fees. Filter by style and market, then copy in one click.",
+    "Browse every vetted trader on Asport Traders — full track records, risk scores, drawdowns and fees. Filter by style and market, then copy in one click.",
 };
 
 export default function TradersPage() {
@@ -24,7 +24,7 @@ export default function TradersPage() {
             <p className="eyebrow">The register</p>
             <h1 className="font-display mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">Top Traders</h1>
             <p className="mt-4 max-w-2xl text-lg text-ink-2">
-              Every strategy below passed Mirrova&apos;s vetting: verified 12-month history, documented
+              Every strategy below passed Asport Traders&apos; vetting: verified 12-month history, documented
               process, continuous risk monitoring. {fmtCount(PLATFORM_STATS.copiers)} investors copy them today.
             </p>
           </Reveal>

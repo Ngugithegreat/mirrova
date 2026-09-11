@@ -126,7 +126,7 @@ function Form({ mode }: { mode: "signup" | "login" }) {
         {mode === "signup" ? (
           <>Already have an account? <Link href="/login" className="text-mint hover:underline">Log in</Link></>
         ) : (
-          <>New to Mirrova? <Link href="/signup" className="text-mint hover:underline">Create an account</Link></>
+          <>New to Asport Traders? <Link href="/signup" className="text-mint hover:underline">Create an account</Link></>
         )}
       </p>
 
