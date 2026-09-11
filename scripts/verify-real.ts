@@ -20,6 +20,7 @@ import { users, payments, cryptoPayments, realAllocations } from "../src/db/sche
 import { signUp } from "../src/server/account";
 import { handleStkCallback, reconcileDeposit, getRealAccount, allocateReal, deallocateReal } from "../src/server/realAccount";
 import { handleCryptoIpn, reconcileCryptoDeposit } from "../src/server/cryptoDeposits";
+import { getEngineView, tickEngine } from "../src/server/copyEngine";
 
 let passed = 0;
 let failed = 0;
@@ -189,6 +190,50 @@ async function main() {
   const acct2 = await getRealAccount(db, user.id);
   check("real account now shows the active allocation", acct2.allocation?.traderSlug === "isabella-rossi");
   check("real account shows zero available (all allocated)", acct2.realCashCents === 0);
+
+  // --- paper-settlement engine: opens/mirrors illustrative positions, and
+  // NEVER touches real money regardless of simulated P&L ---
+  const engineView1 = await getEngineView(db, user.id);
+  check("the engine opens an illustrative position once allocated", engineView1.open !== null);
+  check(
+    "the mirrored position size is a fraction of the allocation, never the full amount",
+    engineView1.open !== null && engineView1.open.sizeUsdCents > 0 && engineView1.open.sizeUsdCents <= allocRow.amountCents
+  );
+
+  const [providerPosRow] = await db.select().from(schema.providerPositions).where(eq(schema.providerPositions.traderSlug, "isabella-rossi"));
+  check("a provider_positions row was created for the trader", !!providerPosRow);
+
+  const [copyPosRow] = await db.select().from(schema.copyPositions).where(eq(schema.copyPositions.userId, user.id));
+  check("a copy_positions row mirrors it for this user's allocation", copyPosRow?.providerPositionId === providerPosRow?.id);
+
+  const [userBeforeTick] = await db.select().from(users).where(eq(users.id, user.id));
+  const [allocBeforeTick] = await db.select().from(realAllocations).where(eq(realAllocations.id, allocRow.id));
+
+  // Force the current position to look stale (as if its time bucket has
+  // elapsed) and re-tick — no need to wait out the real bucket duration.
+  await db.update(schema.providerPositions).set({ bucket: providerPosRow.bucket - 1 }).where(eq(schema.providerPositions.id, providerPosRow.id));
+  await tickEngine(db, "isabella-rossi");
+
+  const [closedProviderPos] = await db.select().from(schema.providerPositions).where(eq(schema.providerPositions.id, providerPosRow.id));
+  check("re-ticking after the bucket elapses closes the old position", closedProviderPos.active === false);
+
+  const [closedCopyPos] = await db.select().from(schema.copyPositions).where(eq(schema.copyPositions.id, copyPosRow.id));
+  check(
+    "closing the provider position also closes and settles its mirrored copy",
+    closedCopyPos.active === false && closedCopyPos.realizedPnlCents !== null
+  );
+
+  const [userAfterTick] = await db.select().from(users).where(eq(users.id, user.id));
+  const [allocAfterTick] = await db.select().from(realAllocations).where(eq(realAllocations.id, allocRow.id));
+  check("engine ticks never touch users.realCashCents, regardless of simulated P&L", userAfterTick.realCashCents === userBeforeTick.realCashCents);
+  check(
+    "engine ticks never touch realAllocations.amountCents, regardless of simulated P&L",
+    allocAfterTick.amountCents === allocBeforeTick.amountCents
+  );
+
+  const engineView2 = await getEngineView(db, user.id);
+  check("a fresh position opens for the new bucket right after the old one closes", engineView2.open !== null);
+  check("the closed position appears in the recently-closed list", engineView2.recentlyClosed.length >= 1);
 
   // --- stopping returns exact principal, never invents a return ---
   const stop1 = await deallocateReal(db, user.id);

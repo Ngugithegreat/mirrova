@@ -24,6 +24,26 @@ export type RealWithdrawal = {
 
 export type KycStatus = "unsubmitted" | "pending" | "verified" | "rejected";
 
+export type EngineOpenPosition = {
+  instrument: string;
+  side: string;
+  entryPrice: number;
+  price: number;
+  sizeUsdCents: number;
+  unrealizedPnlCents: number;
+  openedAt: string;
+};
+
+export type EngineClosedPosition = {
+  instrument: string;
+  side: string;
+  sizeUsdCents: number;
+  realizedPnlCents: number;
+  closedAt: string | null;
+};
+
+export type EngineView = { open: EngineOpenPosition | null; recentlyClosed: EngineClosedPosition[] };
+
 export type RealAccountState = {
   ready: boolean;
   realCashCents: number;
@@ -34,6 +54,7 @@ export type RealAccountState = {
   totalDepositedUsdCents: number;
   eligibleAccountTypes: string[];
   kycStatus: KycStatus;
+  engine: EngineView;
 };
 
 const EMPTY: RealAccountState = {
@@ -46,6 +67,7 @@ const EMPTY: RealAccountState = {
   totalDepositedUsdCents: 0,
   eligibleAccountTypes: [],
   kycStatus: "unsubmitted",
+  engine: { open: null, recentlyClosed: [] },
 };
 
 let state: RealAccountState = EMPTY;
@@ -95,6 +117,7 @@ export async function refreshRealAccount() {
       totalDepositedUsdCents: data.totalDepositedUsdCents ?? 0,
       eligibleAccountTypes: data.eligibleAccountTypes ?? [],
       kycStatus: data.kycStatus ?? "unsubmitted",
+      engine: data.engine ?? { open: null, recentlyClosed: [] },
     });
   } catch {
     setState({ ...EMPTY, ready: true });

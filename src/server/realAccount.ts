@@ -7,6 +7,7 @@ import { kesToUsdCents } from "./fx";
 import { stkPush, stkQuery, normalizeKenyanPhone } from "./mpesa";
 import { getUserAccountType, getTotalDeposited, setUserAccountType } from "./accountTypes";
 import { listWithdrawals } from "./withdrawals";
+import { getEngineView } from "./copyEngine";
 
 type Result<T> = { ok: false; error: string } | ({ ok: true } & T);
 function fail(error: string): { ok: false; error: string } {
@@ -132,6 +133,7 @@ export async function getRealAccount(db: AppDb, userId: string) {
   const eligibleAccountTypes = ACCOUNT_TYPES.filter((t) => totalDepositedUsdCents >= t.minDepositUsdCents).map((t) => t.id);
   const recentWithdrawals = await listWithdrawals(db, userId);
   const [kyc] = await db.select({ status: kycProfiles.status }).from(kycProfiles).where(eq(kycProfiles.userId, userId)).limit(1);
+  const engine = await getEngineView(db, userId);
   return {
     realCashCents: user?.realCashCents ?? 0,
     allocation: allocation ?? null,
@@ -142,6 +144,7 @@ export async function getRealAccount(db: AppDb, userId: string) {
     totalDepositedUsdCents,
     eligibleAccountTypes,
     kycStatus: kyc?.status ?? "unsubmitted",
+    engine,
   };
 }
 

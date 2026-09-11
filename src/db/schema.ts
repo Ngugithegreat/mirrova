@@ -155,6 +155,50 @@ export const kycDocuments = pgTable("kyc_documents", {
   uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** A trader's illustrative "current trade" — opened/closed lazily on read
+ * (no cron), one active row per trader at most. `bucket` is the deterministic
+ * time-bucket index the position's instrument/side decision was derived
+ * from, so a re-tick can tell "is this still the current bucket?" without
+ * recomputing anything. Paper-settlement only: see copy_positions below for
+ * the hard rule this table exists to keep separate from real money. */
+export const providerPositions = pgTable("provider_positions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  traderSlug: text("trader_slug").notNull(),
+  instrument: text("instrument").notNull(),
+  side: text("side").notNull(), // "long" | "short"
+  entryPrice: doublePrecision("entry_price").notNull(),
+  closePrice: doublePrecision("close_price"),
+  bucket: integer("bucket").notNull(),
+  active: boolean("active").notNull().default(true),
+  openedAt: timestamp("opened_at", { withTimezone: true }).notNull().defaultNow(),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+});
+
+/**
+ * A sized mirror of a provider_position for one real allocation — purely
+ * illustrative. THE HARD RULE: realizedPnlCents/unrealizedPnlCents here are
+ * NEVER applied to real_allocations.amount_cents or users.real_cash_cents.
+ * allocateReal/deallocateReal are not touched by this table at all — a
+ * stopped allocation always returns its exact original principal.
+ */
+export const copyPositions = pgTable("copy_positions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  providerPositionId: uuid("provider_position_id")
+    .notNull()
+    .references(() => providerPositions.id, { onDelete: "cascade" }),
+  realAllocationId: uuid("real_allocation_id")
+    .notNull()
+    .references(() => realAllocations.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  sizeUsdCents: integer("size_usd_cents").notNull(),
+  realizedPnlCents: integer("realized_pnl_cents"), // set on close; illustrative only
+  active: boolean("active").notNull().default(true),
+  openedAt: timestamp("opened_at", { withTimezone: true }).notNull().defaultNow(),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+});
+
 /** A withdrawal request debits realCashCents immediately (funds are locked
  * the moment a request is made, same "commit first" pattern as
  * realAllocations) — paid out manually since there's no automated payout

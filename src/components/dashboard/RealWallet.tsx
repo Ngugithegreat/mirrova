@@ -6,7 +6,7 @@ import { useAccountState } from "@/lib/accountClient";
 import { realAccount, useRealAccountState } from "@/lib/realAccountClient";
 import { TRADERS, getTrader } from "@/lib/traders";
 import { ACCOUNT_TYPES } from "@/lib/accountTypes";
-import { fmtMoney } from "@/lib/format";
+import { fmtMoney, cx } from "@/lib/format";
 import { ButtonLink } from "@/components/ui/Button";
 import TraderAvatar from "@/components/ui/TraderAvatar";
 import LiveSignalBadge from "@/components/traders/LiveSignalBadge";
@@ -375,6 +375,33 @@ export default function RealWallet() {
                     {fmtMoney(real.allocation.amountCents / 100, 2)}
                   </div>
                 </div>
+
+                <div className="mt-4 rounded-xl border border-line-soft bg-raised/30 p-4">
+                  <div className="text-[11px] uppercase tracking-wide text-ink-3">Live position</div>
+                  {real.engine.open ? (
+                    <div className="mt-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-ink-2">
+                          {real.engine.open.side === "long" ? "Long" : "Short"} {real.engine.open.instrument}
+                        </span>
+                        <span className={cx("tnum font-semibold", real.engine.open.unrealizedPnlCents >= 0 ? "text-pos" : "text-neg")}>
+                          {real.engine.open.unrealizedPnlCents >= 0 ? "+" : "−"}
+                          {fmtMoney(Math.abs(real.engine.open.unrealizedPnlCents) / 100, 2)}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between text-xs text-ink-3">
+                        <span>Size {fmtMoney(real.engine.open.sizeUsdCents / 100, 2)}</span>
+                        <span>{timeAgo(real.engine.open.openedAt)}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-ink-3">Waiting for the next trade…</p>
+                  )}
+                  <p className="mt-3 text-[11px] leading-relaxed text-ink-3">
+                    Illustrative — this simulated P&amp;L is never settled to your real balance.
+                  </p>
+                </div>
+
                 <button
                   onClick={handleDeallocate}
                   disabled={allocBusy}
@@ -385,6 +412,25 @@ export default function RealWallet() {
                 <p className="mt-3 text-[11px] leading-relaxed text-ink-3">
                   Stopping returns your original allocated principal to your available balance.
                 </p>
+
+                {real.engine.recentlyClosed.length > 0 && (
+                  <div className="mt-5 border-t border-line-soft pt-4">
+                    <div className="text-[11px] uppercase tracking-wide text-ink-3">Recently closed (illustrative)</div>
+                    <div className="mt-2 space-y-1.5">
+                      {real.engine.recentlyClosed.map((c, i) => (
+                        <div key={i} className="flex items-center justify-between text-xs">
+                          <span className="text-ink-3">
+                            {c.side === "long" ? "Long" : "Short"} {c.instrument}
+                          </span>
+                          <span className={cx("tnum font-medium", c.realizedPnlCents >= 0 ? "text-pos" : "text-neg")}>
+                            {c.realizedPnlCents >= 0 ? "+" : "−"}
+                            {fmtMoney(Math.abs(c.realizedPnlCents) / 100, 2)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="mt-4">

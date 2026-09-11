@@ -50,6 +50,13 @@
       "when": 1789150652484,
       "tag": "0006_dizzy_electro",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789151621840,
+      "tag": "0007_tranquil_dakota_north",
+      "breakpoints": true
     }
   ]
 }

@@ -17,6 +17,7 @@ export async function GET() {
     totalDepositedUsdCents,
     eligibleAccountTypes,
     kycStatus,
+    engine,
   } = await getRealAccount(getDb(), user.id);
 
   return NextResponse.json({
@@ -59,5 +60,6 @@ export async function GET() {
     totalDepositedUsdCents,
     eligibleAccountTypes,
     kycStatus,
+    engine,
   });
 }
