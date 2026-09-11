@@ -25,8 +25,8 @@ export default function Hero() {
         <div className="aurora aurora-2 top-24 right-[4%] h-[380px] w-[480px] !opacity-25" />
         <div className="aurora aurora-3 top-[420px] left-[38%] h-[300px] w-[300px] !opacity-20" />
       </div>
-      <PriceTicker opacity={0.2} />
       <TradeNetwork density={1} opacity={0.8} />
+      <PriceTicker />
 
       <div className="relative mx-auto grid max-w-7xl items-center gap-16 px-5 pb-20 pt-14 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:pb-28 lg:pt-20">
         <div>

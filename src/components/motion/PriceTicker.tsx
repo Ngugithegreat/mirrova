@@ -22,9 +22,13 @@ function buildPath(): number[] {
   const pts: number[] = [];
   for (let i = 0; i < n; i++) {
     const x = i * STEP;
-    const a = Math.sin(x * 0.0055) * 0.4;
-    const b = Math.sin(x * 0.019 + 2.1) * 0.22;
-    const noise = (rngFor(`hero-ticker:${i}`)() - 0.5) * 0.16;
+    const a = Math.sin(x * 0.0042) * 0.46;
+    const b = Math.sin(x * 0.012 + 2.1) * 0.2;
+    // A gentle running average of nearby seeded noise reads as a real price
+    // wobble instead of jagged static — smoother than a raw per-point roll.
+    const n1 = rngFor(`hero-ticker:${i}`)();
+    const n2 = rngFor(`hero-ticker:${i + 1}`)();
+    const noise = (n1 * 0.7 + n2 * 0.3 - 0.5) * 0.1;
     pts.push(0.5 + a + b + noise);
   }
   return pts;
@@ -32,7 +36,7 @@ function buildPath(): number[] {
 
 const PATH = buildPath();
 
-export default function PriceTicker({ className = "", opacity = 0.22 }: { className?: string; opacity?: number }) {
+export default function PriceTicker({ className = "", opacity = 0.42 }: { className?: string; opacity?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -65,8 +69,9 @@ export default function PriceTicker({ className = "", opacity = 0.22 }: { classN
 
     function render(offsetPx: number) {
       ctx!.clearRect(0, 0, width, height);
-      const padY = height * 0.12;
+      const padY = height * 0.08;
       const usable = height - padY * 2;
+      const yAt = (px: number) => padY + (1 - sample(px + offsetPx)) * usable;
 
       const grad = ctx!.createLinearGradient(0, 0, width, 0);
       grad.addColorStop(0, "#8b5cf6");
@@ -74,13 +79,12 @@ export default function PriceTicker({ className = "", opacity = 0.22 }: { classN
       grad.addColorStop(1, "#e879f9");
 
       const fillGrad = ctx!.createLinearGradient(0, 0, 0, height);
-      fillGrad.addColorStop(0, "rgba(34,211,238,0.16)");
+      fillGrad.addColorStop(0, "rgba(34,211,238,0.28)");
       fillGrad.addColorStop(1, "rgba(34,211,238,0)");
 
       ctx!.beginPath();
       for (let px = 0; px <= width; px += STEP) {
-        const v = sample(px + offsetPx);
-        const y = padY + (1 - v) * usable;
+        const y = yAt(px);
         if (px === 0) ctx!.moveTo(px, y);
         else ctx!.lineTo(px, y);
       }
@@ -90,17 +94,33 @@ export default function PriceTicker({ className = "", opacity = 0.22 }: { classN
       ctx!.fillStyle = fillGrad;
       ctx!.fill();
 
+      ctx!.save();
+      ctx!.shadowColor = "#22d3ee";
+      ctx!.shadowBlur = 14;
       ctx!.beginPath();
       for (let px = 0; px <= width; px += STEP) {
-        const v = sample(px + offsetPx);
-        const y = padY + (1 - v) * usable;
+        const y = yAt(px);
         if (px === 0) ctx!.moveTo(px, y);
         else ctx!.lineTo(px, y);
       }
       ctx!.strokeStyle = grad;
-      ctx!.lineWidth = 2;
+      ctx!.lineWidth = 3;
       ctx!.lineJoin = "round";
       ctx!.stroke();
+      ctx!.restore();
+
+      // A bright traveling dot anchors the line as "live price data" —
+      // reads unmistakably as a chart rather than the constellation mesh
+      // it shares the background with.
+      const dotX = width * 0.82;
+      const dotY = yAt(dotX);
+      ctx!.beginPath();
+      ctx!.shadowColor = "#22d3ee";
+      ctx!.shadowBlur = 16;
+      ctx!.fillStyle = "#22d3ee";
+      ctx!.arc(dotX, dotY, 4, 0, Math.PI * 2);
+      ctx!.fill();
+      ctx!.shadowBlur = 0;
     }
 
     function loop(now: number) {
