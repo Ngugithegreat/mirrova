@@ -5,12 +5,11 @@ import { fmtMoney, cx } from "@/lib/format";
 
 type Deposit = {
   id: string;
+  method: "mpesa" | "crypto";
   status: "pending" | "completed" | "failed";
-  kesCents: number;
+  displayAmount: string;
   creditedUsdCents: number | null;
-  phone: string;
-  checkoutRequestId: string;
-  resultDesc: string | null;
+  detail: string;
   createdAt: string;
   user: { id: string; name: string; email: string } | null;
 };
@@ -45,14 +44,14 @@ export default function DepositsTab() {
 
   useEffect(load, [filter]);
 
-  async function reconcile(checkoutRequestId: string) {
-    setBusyId(checkoutRequestId);
+  async function reconcile(method: "mpesa" | "crypto", detail: string) {
+    setBusyId(detail);
     setError(null);
     try {
       const res = await fetch("/api/admin/deposits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ checkoutRequestId }),
+        body: JSON.stringify({ method, detail }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Something went wrong.");
@@ -103,11 +102,11 @@ export default function DepositsTab() {
             <thead>
               <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-3">
                 <th className="py-3 pr-4 font-medium">User</th>
+                <th className="py-3 pr-4 font-medium">Method</th>
                 <th className="py-3 pr-4 font-medium">Status</th>
-                <th className="py-3 pr-4 font-medium">KES</th>
+                <th className="py-3 pr-4 font-medium">Amount</th>
                 <th className="py-3 pr-4 font-medium">Credited USD</th>
-                <th className="py-3 pr-4 font-medium">Phone</th>
-                <th className="py-3 pr-4 font-medium">Result</th>
+                <th className="py-3 pr-4 font-medium">Reference</th>
                 <th className="py-3 pr-4 font-medium">Created</th>
                 <th className="py-3 text-right font-medium">Action</th>
               </tr>
@@ -119,24 +118,24 @@ export default function DepositsTab() {
                     <div className="font-medium text-ink">{d.user?.name ?? "—"}</div>
                     <div className="text-xs text-ink-3">{d.user?.email ?? "unknown user"}</div>
                   </td>
+                  <td className="py-3.5 pr-4 text-ink-2 capitalize">{d.method}</td>
                   <td className="py-3.5 pr-4">
                     <span className={`rounded-md px-2 py-0.5 text-xs font-medium capitalize ${STATUS_TONE[d.status]}`}>{d.status}</span>
                   </td>
-                  <td className="tnum py-3.5 pr-4 text-ink-2">{(d.kesCents / 100).toLocaleString()}</td>
+                  <td className="tnum py-3.5 pr-4 text-ink-2">{d.displayAmount}</td>
                   <td className="tnum py-3.5 pr-4 text-ink-2">{d.creditedUsdCents != null ? fmtMoney(d.creditedUsdCents / 100, 2) : "—"}</td>
-                  <td className="tnum py-3.5 pr-4 text-ink-2">{d.phone}</td>
-                  <td className="max-w-[220px] truncate py-3.5 pr-4 text-xs text-ink-3" title={d.resultDesc ?? ""}>
-                    {d.resultDesc ?? "—"}
+                  <td className="max-w-[220px] truncate py-3.5 pr-4 text-xs text-ink-3" title={d.detail}>
+                    {d.detail}
                   </td>
                   <td className="py-3.5 pr-4 text-xs text-ink-3">{new Date(d.createdAt).toLocaleString()}</td>
                   <td className="py-3.5 text-right">
                     {d.status === "pending" && (
                       <button
-                        onClick={() => reconcile(d.checkoutRequestId)}
-                        disabled={busyId === d.checkoutRequestId}
+                        onClick={() => reconcile(d.method, d.detail)}
+                        disabled={busyId === d.detail}
                         className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-mint/50 hover:text-mint disabled:opacity-50"
                       >
-                        {busyId === d.checkoutRequestId ? "Checking…" : "Reconcile"}
+                        {busyId === d.detail ? "Checking…" : "Reconcile"}
                       </button>
                     )}
                   </td>

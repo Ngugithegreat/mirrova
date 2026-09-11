@@ -1,8 +1,9 @@
 import { eq, and, desc, sql, or, ilike, inArray } from "drizzle-orm";
-import { users, payments, copies, realAllocations, deskPositions, withdrawals } from "@/db/schema";
+import { users, payments, cryptoPayments, copies, realAllocations, deskPositions, withdrawals } from "@/db/schema";
 import type { AppDb } from "@/db/types";
 import { getUserAccountType, getTotalDeposited } from "./accountTypes";
 import { reconcileDeposit } from "./realAccount";
+import { reconcileCryptoDeposit } from "./cryptoDeposits";
 import { markWithdrawalPaid, rejectWithdrawal } from "./withdrawals";
 import type { AccountTypeId } from "@/lib/accountTypes";
 import { getTrader } from "@/lib/traders";
@@ -12,10 +13,14 @@ const ROW_LIMIT = 100;
 
 export async function getOverview(db: AppDb) {
   const [userCount] = await db.select({ n: sql<number>`count(*)` }).from(users);
-  const [depositTotal] = await db
+  const [mpesaDepositTotal] = await db
     .select({ n: sql<number>`coalesce(sum(${payments.creditedUsdCents}),0)` })
     .from(payments)
     .where(eq(payments.status, "completed"));
+  const [cryptoDepositTotal] = await db
+    .select({ n: sql<number>`coalesce(sum(${cryptoPayments.creditedUsdCents}),0)` })
+    .from(cryptoPayments)
+    .where(eq(cryptoPayments.status, "completed"));
   const [cashTotal] = await db.select({ n: sql<number>`coalesce(sum(${users.cashCents}),0)` }).from(users);
   const activeCopies = await db.select({ id: copies.id }).from(copies).where(eq(copies.active, true));
   const activeAllocations = await db
@@ -35,7 +40,7 @@ export async function getOverview(db: AppDb) {
 
   return {
     totalUsers: Number(userCount?.n ?? 0),
-    totalDepositedUsdCents: Number(depositTotal?.n ?? 0),
+    totalDepositedUsdCents: Number(mpesaDepositTotal?.n ?? 0) + Number(cryptoDepositTotal?.n ?? 0),
     totalPracticeCashCents: Number(cashTotal?.n ?? 0),
     activeCopiesCount: activeCopies.length,
     activeAllocationsCount: activeAllocations.length,
@@ -97,26 +102,68 @@ async function usersById(db: AppDb, ids: string[]) {
 }
 
 export async function getDepositsList(db: AppDb, status?: string) {
-  const rows = await db
+  const mpesaRows = await db
     .select()
     .from(payments)
     .where(status ? eq(payments.status, status) : undefined)
     .orderBy(desc(payments.createdAt))
     .limit(ROW_LIMIT);
+  const cryptoRows = await db
+    .select()
+    .from(cryptoPayments)
+    .where(status ? eq(cryptoPayments.status, status) : undefined)
+    .orderBy(desc(cryptoPayments.createdAt))
+    .limit(ROW_LIMIT);
 
-  const userMap = await usersById(db, [...new Set(rows.map((r) => r.userId))]);
-  const totals = await db
+  const merged = [
+    ...mpesaRows.map((r) => ({
+      id: r.id,
+      userId: r.userId,
+      method: "mpesa" as const,
+      status: r.status,
+      displayAmount: `KES ${(r.kesCents / 100).toLocaleString()}`,
+      creditedUsdCents: r.creditedUsdCents,
+      createdAt: r.createdAt,
+      detail: r.checkoutRequestId,
+    })),
+    ...cryptoRows.map((r) => ({
+      id: r.id,
+      userId: r.userId,
+      method: "crypto" as const,
+      status: r.status,
+      displayAmount: `$${r.priceAmountUsd.toLocaleString()} (${r.payCurrency})`,
+      creditedUsdCents: r.creditedUsdCents,
+      createdAt: r.createdAt,
+      detail: r.providerPaymentId,
+    })),
+  ]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, ROW_LIMIT);
+
+  const userMap = await usersById(db, [...new Set(merged.map((r) => r.userId))]);
+
+  const mpesaTotals = await db
     .select({ status: payments.status, total: sql<number>`coalesce(sum(${payments.creditedUsdCents}),0)`, count: sql<number>`count(*)` })
     .from(payments)
     .groupBy(payments.status);
+  const cryptoTotals = await db
+    .select({ status: cryptoPayments.status, total: sql<number>`coalesce(sum(${cryptoPayments.creditedUsdCents}),0)`, count: sql<number>`count(*)` })
+    .from(cryptoPayments)
+    .groupBy(cryptoPayments.status);
+
+  const totalsByStatus = new Map<string, { totalUsdCents: number; count: number }>();
+  for (const t of [...mpesaTotals, ...cryptoTotals]) {
+    const prev = totalsByStatus.get(t.status) ?? { totalUsdCents: 0, count: 0 };
+    totalsByStatus.set(t.status, { totalUsdCents: prev.totalUsdCents + Number(t.total), count: prev.count + Number(t.count) });
+  }
 
   return {
-    deposits: rows.map((r) => ({ ...r, user: userMap.get(r.userId) ?? null })),
-    totals: totals.map((t) => ({ status: t.status, totalUsdCents: Number(t.total), count: Number(t.count) })),
+    deposits: merged.map((r) => ({ ...r, user: userMap.get(r.userId) ?? null })),
+    totals: [...totalsByStatus.entries()].map(([status, v]) => ({ status, ...v })),
   };
 }
 
-export { reconcileDeposit };
+export { reconcileDeposit, reconcileCryptoDeposit };
 
 export async function getWithdrawalsList(db: AppDb, status?: string) {
   const rows = await db

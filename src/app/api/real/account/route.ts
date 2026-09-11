@@ -7,10 +7,16 @@ export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ user: null });
 
-  const { realCashCents, allocation, payments, withdrawals, accountType, totalDepositedUsdCents, eligibleAccountTypes } = await getRealAccount(
-    getDb(),
-    user.id
-  );
+  const {
+    realCashCents,
+    allocation,
+    payments,
+    cryptoPayments,
+    withdrawals,
+    accountType,
+    totalDepositedUsdCents,
+    eligibleAccountTypes,
+  } = await getRealAccount(getDb(), user.id);
 
   return NextResponse.json({
     realCashCents,
@@ -22,11 +28,18 @@ export async function GET() {
         }
       : null,
     payments: payments.map((p) => ({
+      method: "mpesa" as const,
       status: p.status,
-      kesCents: p.kesCents,
+      displayAmount: `KES ${(p.kesCents / 100).toLocaleString()}`,
       creditedUsdCents: p.creditedUsdCents,
       createdAt: p.createdAt,
-      checkoutRequestId: p.checkoutRequestId,
+    })),
+    cryptoPayments: cryptoPayments.map((p) => ({
+      method: "crypto" as const,
+      status: p.status,
+      displayAmount: `$${p.priceAmountUsd.toLocaleString()} (${p.payCurrency})`,
+      creditedUsdCents: p.creditedUsdCents,
+      createdAt: p.createdAt,
     })),
     withdrawals: withdrawals.map((w) => ({
       id: w.id,

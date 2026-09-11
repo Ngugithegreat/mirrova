@@ -1,5 +1,5 @@
 import { eq, and, sql } from "drizzle-orm";
-import { users, payments } from "@/db/schema";
+import { users, payments, cryptoPayments } from "@/db/schema";
 import type { AppDb } from "@/db/types";
 import { getAccountType, type AccountTypeId } from "@/lib/accountTypes";
 
@@ -8,14 +8,19 @@ export async function getUserAccountType(db: AppDb, userId: string) {
   return getAccountType(user?.accountType);
 }
 
-/** Lifetime completed real deposits — used to gate real allocation and
- * account-type switching, not to auto-assign a type anymore. */
+/** Lifetime completed real deposits across every rail (M-Pesa + crypto) —
+ * used to gate real allocation and account-type switching, not to
+ * auto-assign a type anymore. */
 export async function getTotalDeposited(db: AppDb, userId: string): Promise<number> {
-  const [row] = await db
+  const [mpesaRow] = await db
     .select({ total: sql<number>`coalesce(sum(${payments.creditedUsdCents}), 0)` })
     .from(payments)
     .where(and(eq(payments.userId, userId), eq(payments.status, "completed")));
-  return Number(row?.total ?? 0);
+  const [cryptoRow] = await db
+    .select({ total: sql<number>`coalesce(sum(${cryptoPayments.creditedUsdCents}), 0)` })
+    .from(cryptoPayments)
+    .where(and(eq(cryptoPayments.userId, userId), eq(cryptoPayments.status, "completed")));
+  return Number(mpesaRow?.total ?? 0) + Number(cryptoRow?.total ?? 0);
 }
 
 export async function setUserAccountType(db: AppDb, userId: string, accountTypeId: AccountTypeId) {

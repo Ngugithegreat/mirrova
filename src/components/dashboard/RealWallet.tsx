@@ -31,10 +31,16 @@ export default function RealWallet() {
   const account = useAccountState();
   const real = useRealAccountState();
 
+  const [depositMethod, setDepositMethod] = useState<"mpesa" | "crypto">("mpesa");
   const [phone, setPhone] = useState("");
   const [amountKes, setAmountKes] = useState(1000);
   const [depositBusy, setDepositBusy] = useState(false);
   const [depositMsg, setDepositMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  const [cryptoAmountUsd, setCryptoAmountUsd] = useState(20);
+  const [cryptoBusy, setCryptoBusy] = useState(false);
+  const [cryptoMsg, setCryptoMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [cryptoDeposit, setCryptoDeposit] = useState<{ payAddress: string; payCurrency: string } | null>(null);
 
   const [selectedSlug, setSelectedSlug] = useState("");
   const [allocBusy, setAllocBusy] = useState(false);
@@ -84,6 +90,31 @@ export default function RealWallet() {
       setDepositMsg({ kind: "err", text: err instanceof Error ? err.message : "Something went wrong." });
     } finally {
       setDepositBusy(false);
+    }
+  }
+
+  async function handleCryptoDeposit(e: React.FormEvent) {
+    e.preventDefault();
+    setCryptoMsg(null);
+    setCryptoBusy(true);
+    try {
+      const { providerPaymentId, payAddress, payCurrency } = await realAccount.depositCrypto(cryptoAmountUsd);
+      setCryptoDeposit({ payAddress, payCurrency });
+      setCryptoMsg({ kind: "ok", text: "Send the exact amount to the address below — this can take a few minutes to confirm." });
+      const status = await realAccount.pollCryptoDeposit(providerPaymentId);
+      if (status === "completed") {
+        setCryptoMsg({ kind: "ok", text: "Deposit received and credited to your real balance." });
+        setCryptoDeposit(null);
+      } else if (status === "failed") {
+        setCryptoMsg({ kind: "err", text: "The crypto payment wasn't completed. You can try again." });
+        setCryptoDeposit(null);
+      } else {
+        setCryptoMsg({ kind: "err", text: "Still waiting on the network — check your Deposit history below shortly." });
+      }
+    } catch (err) {
+      setCryptoMsg({ kind: "err", text: err instanceof Error ? err.message : "Something went wrong." });
+    } finally {
+      setCryptoBusy(false);
     }
   }
 
@@ -204,60 +235,124 @@ export default function RealWallet() {
             <div className="text-[11px] uppercase tracking-wide text-ink-3">Available real balance</div>
             <div className="tnum mt-1.5 font-display text-3xl font-semibold text-ink">{fmtMoney(cash, 2)}</div>
 
-            <form onSubmit={handleDeposit} className="mt-6 space-y-4">
-              <div>
-                <label htmlFor="phone" className="text-xs font-medium uppercase tracking-wide text-ink-3">
-                  M-Pesa phone number
-                </label>
-                <input
-                  id="phone"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="0712345678"
-                  className="mt-2 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-ink placeholder:text-ink-3 focus:border-mint/50 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label htmlFor="amountKes" className="text-xs font-medium uppercase tracking-wide text-ink-3">
-                  Amount (KES)
-                </label>
-                <div className="mt-2 flex items-center gap-2">
-                  {[500, 1000, 5000, 10000].map((v) => (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => setAmountKes(v)}
-                      className={`rounded-lg border px-3 py-1.5 text-xs transition-colors ${
-                        amountKes === v ? "border-mint/50 bg-mint/10 text-mint" : "border-line text-ink-2 hover:text-ink"
-                      }`}
-                    >
-                      {v.toLocaleString()}
-                    </button>
-                  ))}
-                </div>
-                <input
-                  id="amountKes"
-                  type="number"
-                  min={10}
-                  step={1}
-                  value={amountKes}
-                  onChange={(e) => setAmountKes(Number(e.target.value))}
-                  className="tnum mt-2.5 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-lg font-semibold text-ink focus:border-mint/50 focus:outline-none"
-                />
-              </div>
-
-              {depositMsg && (
-                <p className={`text-sm ${depositMsg.kind === "ok" ? "text-mint" : "text-neg"}`}>{depositMsg.text}</p>
-              )}
-
+            <div className="mt-5 flex gap-2">
               <button
-                type="submit"
-                disabled={depositBusy}
-                className="sheen relative w-full overflow-hidden rounded-full bg-gradient-to-r from-violet via-mint to-fuchsia py-3.5 text-sm font-semibold text-[#06060c] disabled:opacity-60"
+                type="button"
+                onClick={() => setDepositMethod("mpesa")}
+                className={`rounded-lg border px-3.5 py-1.5 text-xs font-medium transition-colors ${
+                  depositMethod === "mpesa" ? "border-mint/50 bg-mint/10 text-mint" : "border-line text-ink-2 hover:text-ink"
+                }`}
               >
-                {depositBusy ? "Check your phone…" : "Deposit via M-Pesa"}
+                M-Pesa
               </button>
-            </form>
+              <button
+                type="button"
+                onClick={() => setDepositMethod("crypto")}
+                className={`rounded-lg border px-3.5 py-1.5 text-xs font-medium transition-colors ${
+                  depositMethod === "crypto" ? "border-mint/50 bg-mint/10 text-mint" : "border-line text-ink-2 hover:text-ink"
+                }`}
+              >
+                Crypto
+              </button>
+            </div>
+
+            {depositMethod === "mpesa" ? (
+              <form onSubmit={handleDeposit} className="mt-6 space-y-4">
+                <div>
+                  <label htmlFor="phone" className="text-xs font-medium uppercase tracking-wide text-ink-3">
+                    M-Pesa phone number
+                  </label>
+                  <input
+                    id="phone"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="0712345678"
+                    className="mt-2 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-ink placeholder:text-ink-3 focus:border-mint/50 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="amountKes" className="text-xs font-medium uppercase tracking-wide text-ink-3">
+                    Amount (KES)
+                  </label>
+                  <div className="mt-2 flex items-center gap-2">
+                    {[500, 1000, 5000, 10000].map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setAmountKes(v)}
+                        className={`rounded-lg border px-3 py-1.5 text-xs transition-colors ${
+                          amountKes === v ? "border-mint/50 bg-mint/10 text-mint" : "border-line text-ink-2 hover:text-ink"
+                        }`}
+                      >
+                        {v.toLocaleString()}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    id="amountKes"
+                    type="number"
+                    min={10}
+                    step={1}
+                    value={amountKes}
+                    onChange={(e) => setAmountKes(Number(e.target.value))}
+                    className="tnum mt-2.5 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-lg font-semibold text-ink focus:border-mint/50 focus:outline-none"
+                  />
+                </div>
+
+                {depositMsg && (
+                  <p className={`text-sm ${depositMsg.kind === "ok" ? "text-mint" : "text-neg"}`}>{depositMsg.text}</p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={depositBusy}
+                  className="sheen relative w-full overflow-hidden rounded-full bg-gradient-to-r from-violet via-mint to-fuchsia py-3.5 text-sm font-semibold text-[#06060c] disabled:opacity-60"
+                >
+                  {depositBusy ? "Check your phone…" : "Deposit via M-Pesa"}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleCryptoDeposit} className="mt-6 space-y-4">
+                <div>
+                  <label htmlFor="cryptoAmountUsd" className="text-xs font-medium uppercase tracking-wide text-ink-3">
+                    Amount (USD, min $20)
+                  </label>
+                  <input
+                    id="cryptoAmountUsd"
+                    type="number"
+                    min={20}
+                    step={1}
+                    value={cryptoAmountUsd}
+                    onChange={(e) => setCryptoAmountUsd(Number(e.target.value))}
+                    className="tnum mt-2 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-lg font-semibold text-ink focus:border-mint/50 focus:outline-none"
+                  />
+                </div>
+
+                {cryptoDeposit && (
+                  <div className="rounded-xl border border-line bg-raised/60 p-4">
+                    <div className="text-[11px] uppercase tracking-wide text-ink-3">Send USDT (TRC-20) to</div>
+                    <div className="tnum mt-1.5 break-all text-sm text-ink">{cryptoDeposit.payAddress}</div>
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard?.writeText(cryptoDeposit.payAddress)}
+                      className="mt-2 text-xs font-medium text-mint hover:underline"
+                    >
+                      Copy address
+                    </button>
+                  </div>
+                )}
+
+                {cryptoMsg && <p className={`text-sm ${cryptoMsg.kind === "ok" ? "text-mint" : "text-neg"}`}>{cryptoMsg.text}</p>}
+
+                <button
+                  type="submit"
+                  disabled={cryptoBusy}
+                  className="sheen relative w-full overflow-hidden rounded-full bg-gradient-to-r from-violet via-mint to-fuchsia py-3.5 text-sm font-semibold text-[#06060c] disabled:opacity-60"
+                >
+                  {cryptoBusy ? "Waiting for payment…" : "Generate deposit address"}
+                </button>
+              </form>
+            )}
           </div>
 
           {/* Allocation */}
@@ -375,10 +470,11 @@ export default function RealWallet() {
           <div className="panel mt-4 p-8 text-center text-sm text-ink-3">No deposits yet.</div>
         ) : (
           <div className="panel mt-4 divide-y divide-line-soft">
-            {real.payments.map((p) => (
-              <div key={p.checkoutRequestId} className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 text-sm">
+            {real.payments.map((p, i) => (
+              <div key={`${p.method}-${p.createdAt}-${i}`} className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 text-sm">
                 <span className="tnum text-ink-2">
-                  KES {(p.kesCents / 100).toLocaleString()}
+                  <span className="mr-2 text-[11px] uppercase text-ink-3">{p.method}</span>
+                  {p.displayAmount}
                   {p.creditedUsdCents != null && <span className="text-ink-3"> → {fmtMoney(p.creditedUsdCents / 100, 2)}</span>}
                 </span>
                 <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${STATUS_TONE[p.status] ?? ""}`}>

@@ -16,9 +16,10 @@ import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { eq } from "drizzle-orm";
 import * as schema from "../src/db/schema";
-import { users, payments, realAllocations } from "../src/db/schema";
+import { users, payments, cryptoPayments, realAllocations } from "../src/db/schema";
 import { signUp } from "../src/server/account";
 import { handleStkCallback, reconcileDeposit, getRealAccount, allocateReal, deallocateReal } from "../src/server/realAccount";
+import { handleCryptoIpn, reconcileCryptoDeposit } from "../src/server/cryptoDeposits";
 
 let passed = 0;
 let failed = 0;
@@ -95,15 +96,61 @@ async function main() {
   const [afterFailed] = await db.select().from(users).where(eq(users.id, user.id));
   check("a failed deposit credits nothing", afterFailed.realCashCents === 769);
 
+  // --- a completed crypto deposit ---
+  await db.insert(cryptoPayments).values({
+    userId: user.id,
+    providerPaymentId: "test-crypto-1",
+    payCurrency: "usdttrc20",
+    priceAmountUsd: 25,
+    payAddress: "TAbc123FakeAddress",
+    status: "pending",
+  });
+
+  await handleCryptoIpn(db, "test-crypto-1", "finished", 25);
+
+  const [cp1] = await db.select().from(cryptoPayments).where(eq(cryptoPayments.providerPaymentId, "test-crypto-1"));
+  check("completed crypto payment is marked completed", cp1.status === "completed");
+  check("crypto USD credited 1:1 for a stablecoin", cp1.creditedUsdCents === 2500);
+
+  const [afterCryptoDeposit] = await db.select().from(users).where(eq(users.id, user.id));
+  check("real balance credited by the crypto USD amount", afterCryptoDeposit.realCashCents === 769 + 2500);
+
+  // --- idempotency: the IPN AND a status reconciliation could both fire ---
+  await handleCryptoIpn(db, "test-crypto-1", "finished", 25);
+  const [afterCryptoDuplicate] = await db.select().from(users).where(eq(users.id, user.id));
+  check("a duplicate crypto settlement never double-credits", afterCryptoDuplicate.realCashCents === 769 + 2500);
+
+  const cryptoReconciled = await reconcileCryptoDeposit(db, "test-crypto-1");
+  check("reconciling an already-completed crypto payment is a no-op", cryptoReconciled.ok && cryptoReconciled.status === "completed");
+  const [afterCryptoReconcile] = await db.select().from(users).where(eq(users.id, user.id));
+  check("reconciling an already-completed crypto payment still doesn't double-credit", afterCryptoReconcile.realCashCents === 769 + 2500);
+
+  // --- a failed crypto deposit ---
+  await db.insert(cryptoPayments).values({
+    userId: user.id,
+    providerPaymentId: "test-crypto-2",
+    payCurrency: "usdttrc20",
+    priceAmountUsd: 30,
+    payAddress: "TAbc123FakeAddress2",
+    status: "pending",
+  });
+  await handleCryptoIpn(db, "test-crypto-2", "failed");
+  const [cp2] = await db.select().from(cryptoPayments).where(eq(cryptoPayments.providerPaymentId, "test-crypto-2"));
+  check("failed crypto payment is marked failed", cp2.status === "failed");
+  const [afterCryptoFailed] = await db.select().from(users).where(eq(users.id, user.id));
+  check("a failed crypto deposit credits nothing", afterCryptoFailed.realCashCents === 769 + 2500);
+
   // --- portfolio read ---
   const acct1 = await getRealAccount(db, user.id);
-  check("real account shows the credited balance", acct1.realCashCents === 769);
-  check("real account lists both payment attempts", acct1.payments.length === 2);
+  check("real account shows the credited balance", acct1.realCashCents === 769 + 2500);
+  check("real account lists both mpesa payment attempts", acct1.payments.length === 2);
+  check("real account lists both crypto payment attempts", acct1.cryptoPayments.length === 2);
   check("no allocation yet", acct1.allocation === null);
 
   // --- account types: allocation now also requires clearing the account
-  // type's minimum lifetime deposit (Standard = $50) — the $7.69 credited
-  // above is deliberately too small to activate real copying on its own.
+  // type's minimum lifetime deposit (Standard = $50) — the $32.69 credited
+  // above (mpesa + crypto) is deliberately too small to activate real
+  // copying on its own.
   const allocBelowMin = await allocateReal(db, user.id, "isabella-rossi");
   check("allocating below Standard's $50 minimum deposit is rejected", !allocBelowMin.ok);
 
@@ -116,7 +163,7 @@ async function main() {
   });
   await handleStkCallback(db, "test-checkout-3", 0, "The service request is processed successfully.", "RCPT5678");
   const [afterTopUp] = await db.select().from(users).where(eq(users.id, user.id));
-  const totalRealCents = afterTopUp.realCashCents; // 769 + 7,692 = 8,461 — clears the $50 minimum
+  const totalRealCents = afterTopUp.realCashCents; // 769 + 2,500 + 7,692 — clears the $50 minimum
   check("the top-up deposit clears Standard's $50 minimum", totalRealCents >= 5000);
 
   // --- allocation is all-or-nothing ---

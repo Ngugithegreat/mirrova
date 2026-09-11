@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { requireAdmin } from "@/server/adminAuth";
-import { getDepositsList, reconcileDeposit } from "@/server/admin";
+import { getDepositsList, reconcileDeposit, reconcileCryptoDeposit } from "@/server/admin";
 
 export async function GET(req: Request) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
@@ -12,10 +12,11 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   const body = await req.json().catch(() => null);
-  const checkoutRequestId = typeof body?.checkoutRequestId === "string" ? body.checkoutRequestId : "";
-  if (!checkoutRequestId) return NextResponse.json({ error: "Missing checkoutRequestId." }, { status: 400 });
+  const method = body?.method === "crypto" ? "crypto" : "mpesa";
+  const detail = typeof body?.detail === "string" ? body.detail : "";
+  if (!detail) return NextResponse.json({ error: "Missing detail." }, { status: 400 });
 
-  const result = await reconcileDeposit(getDb(), checkoutRequestId);
+  const result = method === "crypto" ? await reconcileCryptoDeposit(getDb(), detail) : await reconcileDeposit(getDb(), detail);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   return NextResponse.json({ ok: true, status: result.status, creditedUsdCents: result.creditedUsdCents });
 }

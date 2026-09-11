@@ -1,5 +1,5 @@
 import { eq, and, desc } from "drizzle-orm";
-import { users, payments, realAllocations, activity } from "@/db/schema";
+import { users, payments, cryptoPayments, realAllocations, activity } from "@/db/schema";
 import type { AppDb } from "@/db/types";
 import { getTrader } from "@/lib/traders";
 import { ACCOUNT_TYPES, isAccountTypeId, type AccountTypeId } from "@/lib/accountTypes";
@@ -121,6 +121,12 @@ export async function getRealAccount(db: AppDb, userId: string) {
     .where(eq(payments.userId, userId))
     .orderBy(desc(payments.createdAt))
     .limit(10);
+  const recentCryptoPayments = await db
+    .select()
+    .from(cryptoPayments)
+    .where(eq(cryptoPayments.userId, userId))
+    .orderBy(desc(cryptoPayments.createdAt))
+    .limit(10);
   const accountType = await getUserAccountType(db, userId);
   const totalDepositedUsdCents = await getTotalDeposited(db, userId);
   const eligibleAccountTypes = ACCOUNT_TYPES.filter((t) => totalDepositedUsdCents >= t.minDepositUsdCents).map((t) => t.id);
@@ -129,6 +135,7 @@ export async function getRealAccount(db: AppDb, userId: string) {
     realCashCents: user?.realCashCents ?? 0,
     allocation: allocation ?? null,
     payments: recentPayments,
+    cryptoPayments: recentCryptoPayments,
     withdrawals: recentWithdrawals,
     accountType,
     totalDepositedUsdCents,

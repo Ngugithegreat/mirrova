@@ -3,11 +3,11 @@
 import { useEffect, useSyncExternalStore } from "react";
 
 export type RealPayment = {
+  method: "mpesa" | "crypto";
   status: "pending" | "completed" | "failed";
-  kesCents: number;
+  displayAmount: string;
   creditedUsdCents: number | null;
   createdAt: string;
-  checkoutRequestId: string;
 };
 
 export type RealAllocation = { slug: string; amountCents: number; startedAt: string };
@@ -78,11 +78,14 @@ async function fetchJson(url: string, init?: RequestInit) {
 export async function refreshRealAccount() {
   try {
     const data = await fetchJson("/api/real/account");
+    const payments: RealPayment[] = [...(data.payments ?? []), ...(data.cryptoPayments ?? [])].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
     setState({
       ready: true,
       realCashCents: data.realCashCents ?? 0,
       allocation: data.allocation ?? null,
-      payments: data.payments ?? [],
+      payments,
       withdrawals: data.withdrawals ?? [],
       accountType: data.accountType ?? null,
       totalDepositedUsdCents: data.totalDepositedUsdCents ?? 0,
@@ -137,5 +140,22 @@ export const realAccount = {
   async withdraw(phone: string, amountUsdCents: number) {
     await fetchJson("/api/real/withdraw", { method: "POST", body: JSON.stringify({ phone, amountUsdCents }) });
     await refreshRealAccount();
+  },
+  async depositCrypto(amountUsd: number) {
+    const data = await fetchJson("/api/payments/crypto/initiate", { method: "POST", body: JSON.stringify({ amountUsd }) });
+    return { providerPaymentId: data.providerPaymentId as string, payAddress: data.payAddress as string, payCurrency: data.payCurrency as string };
+  },
+  /** Polls NOWPayments-backed status until the deposit settles or times out. */
+  async pollCryptoDeposit(providerPaymentId: string, { intervalMs = 5000, timeoutMs = 15 * 60_000 } = {}) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const data = await fetchJson(`/api/payments/crypto/status?providerPaymentId=${encodeURIComponent(providerPaymentId)}`);
+      if (data.status === "completed" || data.status === "failed") {
+        await refreshRealAccount();
+        return data.status as "completed" | "failed";
+      }
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+    return "pending" as const;
   },
 };

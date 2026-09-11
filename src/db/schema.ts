@@ -62,6 +62,24 @@ export const payments = pgTable("payments", {
   completedAt: timestamp("completed_at", { withTimezone: true }),
 });
 
+/** Real-money crypto deposits via NOWPayments. One row per created payment
+ * (a unique deposit address). Kept separate from `payments` since that
+ * table is tightly coupled to M-Pesa's fields (phone/checkoutRequestId). */
+export const cryptoPayments = pgTable("crypto_payments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  providerPaymentId: text("provider_payment_id").notNull().unique(),
+  payCurrency: text("pay_currency").notNull(), // e.g. "usdttrc20"
+  priceAmountUsd: doublePrecision("price_amount_usd").notNull(), // amount requested, USD
+  creditedUsdCents: integer("credited_usd_cents"), // set on completion
+  payAddress: text("pay_address").notNull(),
+  status: text("status").notNull().default("pending"), // pending | completed | failed
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+});
+
 /**
  * A real allocation is all-or-nothing by design: depositing and copying with
  * real money means the client's entire available real balance goes to one
