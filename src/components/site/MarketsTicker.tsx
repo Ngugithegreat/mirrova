@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { rngFor } from "@/lib/prng";
 
 const MARKETS: { sym: string; price: number; decimals: number }[] = [
@@ -15,12 +18,27 @@ const MARKETS: { sym: string; price: number; decimals: number }[] = [
   { sym: "AAPL", price: 268.4, decimals: 2 },
 ];
 
+const TICK_BUCKET_MS = 90 * 1000;
+
+function tickerItems(bucket: number) {
+  return MARKETS.map((m) => {
+    const rnd = rngFor(`ticker:${m.sym}:${bucket}`);
+    const chg = Math.round((rnd() - 0.45) * 360) / 100;
+    const price = Math.round(m.price * (1 + chg / 100 / 3) * 10 ** m.decimals) / 10 ** m.decimals;
+    return { ...m, price, chg };
+  });
+}
+
 export default function MarketsTicker() {
-  const rnd = rngFor("ticker");
-  const items = MARKETS.map((m) => ({
-    ...m,
-    chg: Math.round((rnd() - 0.45) * 360) / 100,
-  }));
+  const [bucket, setBucket] = useState(0);
+
+  useEffect(() => {
+    setBucket(Math.floor(Date.now() / TICK_BUCKET_MS));
+    const id = setInterval(() => setBucket(Math.floor(Date.now() / TICK_BUCKET_MS)), 15_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const items = tickerItems(bucket);
   const row = (key: string) => (
     <div key={key} className="flex shrink-0 items-center" aria-hidden={key === "b"}>
       {items.map((m) => (
