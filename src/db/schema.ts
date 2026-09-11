@@ -172,6 +172,10 @@ export const providerPositions = pgTable("provider_positions", {
   side: text("side").notNull(), // "long" | "short"
   entryPrice: doublePrecision("entry_price").notNull(),
   closePrice: doublePrecision("close_price"),
+  // The pre-computed destined close price (set at open time, from the
+  // admin-configured testing win rate) — settlement uses this exact value
+  // rather than a fresh price fetch, so the designed outcome is guaranteed.
+  plannedClosePrice: doublePrecision("planned_close_price"),
   bucket: integer("bucket").notNull(),
   active: boolean("active").notNull().default(true),
   openedAt: timestamp("opened_at", { withTimezone: true }).notNull().defaultNow(),
@@ -218,4 +222,13 @@ export const withdrawals = pgTable("withdrawals", {
   note: text("note"),
   requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+});
+
+/** A single-row settings table (id is always "singleton"). Currently just
+ * the admin-configurable paper-engine win rate — a testing-only dial,
+ * removed before this platform ever goes live with real settlement. */
+export const platformSettings = pgTable("platform_settings", {
+  id: text("id").primaryKey().default("singleton"),
+  winRatePct: integer("win_rate_pct").notNull().default(55),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

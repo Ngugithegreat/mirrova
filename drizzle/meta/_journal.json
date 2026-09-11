@@ -64,6 +64,13 @@
       "when": 1789162463201,
       "tag": "0008_moaning_owl",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789164431729,
+      "tag": "0009_flat_silver_samurai",
+      "breakpoints": true
     }
   ]
 }

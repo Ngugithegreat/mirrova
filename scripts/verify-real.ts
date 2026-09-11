@@ -14,13 +14,14 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import * as schema from "../src/db/schema";
 import { users, payments, cryptoPayments, realAllocations } from "../src/db/schema";
 import { signUp } from "../src/server/account";
 import { handleStkCallback, reconcileDeposit, getRealAccount, allocateReal, deallocateReal } from "../src/server/realAccount";
 import { handleCryptoIpn, reconcileCryptoDeposit } from "../src/server/cryptoDeposits";
 import { getEngineView, tickEngine } from "../src/server/copyEngine";
+import { setWinRatePct } from "../src/server/settings";
 
 let passed = 0;
 let failed = 0;
@@ -234,6 +235,62 @@ async function main() {
   const engineView2 = await getEngineView(db, user.id);
   check("a fresh position opens for the new bucket right after the old one closes", engineView2.open !== null);
   check("the closed position appears in the recently-closed list", engineView2.recentlyClosed.length >= 1);
+
+  // --- admin win-rate dial: deterministically engineers the designed
+  // outcome, proving the testing dial actually controls results ---
+  await setWinRatePct(db, 100);
+  const winUser = await signUp(db, "Win Rate Tester", "winrate@example.com", "hunter22pw").then(async (r) => {
+    if (!r.ok) throw new Error("signup failed");
+    const [u] = await db.select().from(users).where(eq(users.email, "winrate@example.com"));
+    return u;
+  });
+  await db.update(users).set({ realCashCents: 100_000 }).where(eq(users.id, winUser.id));
+  await db.insert(payments).values({
+    userId: winUser.id,
+    phone: "254712345678",
+    kesCents: 1_000_000,
+    checkoutRequestId: "test-checkout-winrate",
+    status: "completed",
+    creditedUsdCents: 100_000,
+  });
+  await allocateReal(db, winUser.id, "elena-vasquez");
+  await getEngineView(db, winUser.id); // opens the illustrative position
+  const [winPos] = await db.select().from(schema.providerPositions).where(eq(schema.providerPositions.traderSlug, "elena-vasquez"));
+  check("a position opened for the 100% win-rate test", !!winPos);
+  await db.update(schema.providerPositions).set({ bucket: winPos.bucket - 1 }).where(eq(schema.providerPositions.id, winPos.id));
+  await getEngineView(db, winUser.id); // discovers the bucket rollover and closes it
+  const [winClosedCopy] = await db
+    .select()
+    .from(schema.copyPositions)
+    .where(and(eq(schema.copyPositions.userId, winUser.id), eq(schema.copyPositions.active, false)));
+  check("with winRatePct=100, the illustrative position always closes in profit", (winClosedCopy?.realizedPnlCents ?? -1) > 0);
+
+  await setWinRatePct(db, 0);
+  const loseUser = await signUp(db, "Lose Rate Tester", "loserate@example.com", "hunter22pw").then(async (r) => {
+    if (!r.ok) throw new Error("signup failed");
+    const [u] = await db.select().from(users).where(eq(users.email, "loserate@example.com"));
+    return u;
+  });
+  await db.update(users).set({ realCashCents: 100_000 }).where(eq(users.id, loseUser.id));
+  await db.insert(payments).values({
+    userId: loseUser.id,
+    phone: "254712345678",
+    kesCents: 1_000_000,
+    checkoutRequestId: "test-checkout-loserate",
+    status: "completed",
+    creditedUsdCents: 100_000,
+  });
+  await allocateReal(db, loseUser.id, "daniel-kim");
+  await getEngineView(db, loseUser.id);
+  const [losePos] = await db.select().from(schema.providerPositions).where(eq(schema.providerPositions.traderSlug, "daniel-kim"));
+  check("a position opened for the 0% win-rate test", !!losePos);
+  await db.update(schema.providerPositions).set({ bucket: losePos.bucket - 1 }).where(eq(schema.providerPositions.id, losePos.id));
+  await getEngineView(db, loseUser.id);
+  const [loseClosedCopy] = await db
+    .select()
+    .from(schema.copyPositions)
+    .where(and(eq(schema.copyPositions.userId, loseUser.id), eq(schema.copyPositions.active, false)));
+  check("with winRatePct=0, the illustrative position always closes at a loss", (loseClosedCopy?.realizedPnlCents ?? 1) < 0);
 
   // --- stopping returns exact principal, never invents a return ---
   const stop1 = await deallocateReal(db, user.id);

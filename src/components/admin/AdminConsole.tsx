@@ -10,6 +10,7 @@ import ActivityTab from "./ActivityTab";
 import DeskTab from "./DeskTab";
 import KycTab from "./KycTab";
 import EngineTab from "./EngineTab";
+import SignalTestingTab from "./SignalTestingTab";
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -20,6 +21,7 @@ const TABS = [
   { key: "activity", label: "Copy activity" },
   { key: "desk", label: "Desk" },
   { key: "engine", label: "Trade engine" },
+  { key: "signals", label: "Signal testing" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -75,6 +77,7 @@ export default function AdminConsole() {
         {tab === "activity" && <ActivityTab />}
         {tab === "desk" && <DeskTab />}
         {tab === "engine" && <EngineTab />}
+        {tab === "signals" && <SignalTestingTab />}
       </div>
     </div>
   );
