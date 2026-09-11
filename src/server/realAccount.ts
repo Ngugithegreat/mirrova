@@ -6,6 +6,7 @@ import { ACCOUNT_TYPES, isAccountTypeId, type AccountTypeId } from "@/lib/accoun
 import { kesToUsdCents } from "./fx";
 import { stkPush, stkQuery, normalizeKenyanPhone } from "./mpesa";
 import { getUserAccountType, getTotalDeposited, setUserAccountType } from "./accountTypes";
+import { listWithdrawals } from "./withdrawals";
 
 type Result<T> = { ok: false; error: string } | ({ ok: true } & T);
 function fail(error: string): { ok: false; error: string } {
@@ -123,10 +124,12 @@ export async function getRealAccount(db: AppDb, userId: string) {
   const accountType = await getUserAccountType(db, userId);
   const totalDepositedUsdCents = await getTotalDeposited(db, userId);
   const eligibleAccountTypes = ACCOUNT_TYPES.filter((t) => totalDepositedUsdCents >= t.minDepositUsdCents).map((t) => t.id);
+  const recentWithdrawals = await listWithdrawals(db, userId);
   return {
     realCashCents: user?.realCashCents ?? 0,
     allocation: allocation ?? null,
     payments: recentPayments,
+    withdrawals: recentWithdrawals,
     accountType,
     totalDepositedUsdCents,
     eligibleAccountTypes,

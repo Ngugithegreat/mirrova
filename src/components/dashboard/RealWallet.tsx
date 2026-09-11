@@ -23,6 +23,8 @@ const STATUS_TONE: Record<string, string> = {
   completed: "bg-pos/10 text-pos",
   pending: "bg-warn/10 text-warn",
   failed: "bg-neg/10 text-neg",
+  paid: "bg-pos/10 text-pos",
+  rejected: "bg-neg/10 text-neg",
 };
 
 export default function RealWallet() {
@@ -40,6 +42,11 @@ export default function RealWallet() {
 
   const [switchBusy, setSwitchBusy] = useState<string | null>(null);
   const [switchError, setSwitchError] = useState<string | null>(null);
+
+  const [withdrawPhone, setWithdrawPhone] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState(5);
+  const [withdrawBusy, setWithdrawBusy] = useState(false);
+  const [withdrawMsg, setWithdrawMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   if (!account.ready || !real.ready) {
     return <div className="mx-auto max-w-4xl px-5 py-24 text-center text-ink-3">Loading wallet…</div>;
@@ -114,6 +121,20 @@ export default function RealWallet() {
       setSwitchError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setSwitchBusy(null);
+    }
+  }
+
+  async function handleWithdraw(e: React.FormEvent) {
+    e.preventDefault();
+    setWithdrawMsg(null);
+    setWithdrawBusy(true);
+    try {
+      await realAccount.withdraw(withdrawPhone, Math.round(withdrawAmount * 100));
+      setWithdrawMsg({ kind: "ok", text: "Withdrawal requested — we'll pay it out to your phone shortly." });
+    } catch (err) {
+      setWithdrawMsg({ kind: "err", text: err instanceof Error ? err.message : "Something went wrong." });
+    } finally {
+      setWithdrawBusy(false);
     }
   }
 
@@ -302,6 +323,53 @@ export default function RealWallet() {
           </div>
         </div>
 
+        {/* Withdraw */}
+        <div className="panel mt-6 p-6">
+          <div className="text-[11px] uppercase tracking-wide text-ink-3">Withdraw to M-Pesa</div>
+          <p className="mt-1.5 text-sm text-ink-2">Withdraw from your available real balance ({fmtMoney(cash, 2)}).</p>
+
+          <form onSubmit={handleWithdraw} className="mt-4 grid gap-4 sm:grid-cols-[1fr_140px_auto] sm:items-end">
+            <div>
+              <label htmlFor="withdrawPhone" className="text-xs font-medium uppercase tracking-wide text-ink-3">
+                M-Pesa phone number
+              </label>
+              <input
+                id="withdrawPhone"
+                value={withdrawPhone}
+                onChange={(e) => setWithdrawPhone(e.target.value)}
+                placeholder="0712345678"
+                className="mt-2 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-ink placeholder:text-ink-3 focus:border-mint/50 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label htmlFor="withdrawAmount" className="text-xs font-medium uppercase tracking-wide text-ink-3">
+                Amount (USD)
+              </label>
+              <input
+                id="withdrawAmount"
+                type="number"
+                min={5}
+                step={1}
+                value={withdrawAmount}
+                onChange={(e) => setWithdrawAmount(Number(e.target.value))}
+                className="tnum mt-2 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-ink focus:border-mint/50 focus:outline-none"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={withdrawBusy || cash <= 0}
+              className="rounded-xl border border-line px-5 py-3 text-sm font-medium text-ink-2 transition-colors hover:border-mint/50 hover:text-mint disabled:opacity-50"
+            >
+              {withdrawBusy ? "Requesting…" : "Withdraw"}
+            </button>
+          </form>
+          {withdrawMsg && <p className={`mt-3 text-sm ${withdrawMsg.kind === "ok" ? "text-mint" : "text-neg"}`}>{withdrawMsg.text}</p>}
+          <p className="mt-3 text-[11px] leading-relaxed text-ink-3">
+            Withdrawals are processed manually and paid out to the M-Pesa number you provide — allow up to 1
+            business day.
+          </p>
+        </div>
+
         <h2 className="font-display mt-10 text-xl font-semibold">Deposit history</h2>
         {real.payments.length === 0 ? (
           <div className="panel mt-4 p-8 text-center text-sm text-ink-3">No deposits yet.</div>
@@ -317,6 +385,21 @@ export default function RealWallet() {
                   {p.status}
                 </span>
                 <span className="shrink-0 text-xs text-ink-3">{timeAgo(p.createdAt)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <h2 className="font-display mt-10 text-xl font-semibold">Withdrawal history</h2>
+        {real.withdrawals.length === 0 ? (
+          <div className="panel mt-4 p-8 text-center text-sm text-ink-3">No withdrawals yet.</div>
+        ) : (
+          <div className="panel mt-4 divide-y divide-line-soft">
+            {real.withdrawals.map((w) => (
+              <div key={w.id} className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 text-sm">
+                <span className="tnum text-ink-2">{fmtMoney(w.amountUsdCents / 100, 2)}</span>
+                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${STATUS_TONE[w.status] ?? ""}`}>{w.status}</span>
+                <span className="shrink-0 text-xs text-ink-3">{timeAgo(w.requestedAt)}</span>
               </div>
             ))}
           </div>

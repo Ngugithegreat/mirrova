@@ -14,11 +14,20 @@ export type RealAllocation = { slug: string; amountCents: number; startedAt: str
 
 export type RealAccountType = { id: string; name: string; minDepositUsdCents: number; maxLeverage: number; maxConcurrentCopies: number };
 
+export type RealWithdrawal = {
+  id: string;
+  amountUsdCents: number;
+  status: "pending" | "paid" | "rejected";
+  requestedAt: string;
+  note: string | null;
+};
+
 export type RealAccountState = {
   ready: boolean;
   realCashCents: number;
   allocation: RealAllocation | null;
   payments: RealPayment[];
+  withdrawals: RealWithdrawal[];
   accountType: RealAccountType | null;
   totalDepositedUsdCents: number;
   eligibleAccountTypes: string[];
@@ -29,6 +38,7 @@ const EMPTY: RealAccountState = {
   realCashCents: 0,
   allocation: null,
   payments: [],
+  withdrawals: [],
   accountType: null,
   totalDepositedUsdCents: 0,
   eligibleAccountTypes: [],
@@ -73,6 +83,7 @@ export async function refreshRealAccount() {
       realCashCents: data.realCashCents ?? 0,
       allocation: data.allocation ?? null,
       payments: data.payments ?? [],
+      withdrawals: data.withdrawals ?? [],
       accountType: data.accountType ?? null,
       totalDepositedUsdCents: data.totalDepositedUsdCents ?? 0,
       eligibleAccountTypes: data.eligibleAccountTypes ?? [],
@@ -121,6 +132,10 @@ export const realAccount = {
   },
   async switchType(accountType: string) {
     await fetchJson("/api/account/switch-type", { method: "POST", body: JSON.stringify({ accountType }) });
+    await refreshRealAccount();
+  },
+  async withdraw(phone: string, amountUsdCents: number) {
+    await fetchJson("/api/real/withdraw", { method: "POST", body: JSON.stringify({ phone, amountUsdCents }) });
     await refreshRealAccount();
   },
 };

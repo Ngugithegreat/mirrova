@@ -1,8 +1,9 @@
 import { eq, and, desc, sql, or, ilike, inArray } from "drizzle-orm";
-import { users, payments, copies, realAllocations, deskPositions } from "@/db/schema";
+import { users, payments, copies, realAllocations, deskPositions, withdrawals } from "@/db/schema";
 import type { AppDb } from "@/db/types";
 import { getUserAccountType, getTotalDeposited } from "./accountTypes";
 import { reconcileDeposit } from "./realAccount";
+import { markWithdrawalPaid, rejectWithdrawal } from "./withdrawals";
 import type { AccountTypeId } from "@/lib/accountTypes";
 import { getTrader } from "@/lib/traders";
 
@@ -116,6 +117,28 @@ export async function getDepositsList(db: AppDb, status?: string) {
 }
 
 export { reconcileDeposit };
+
+export async function getWithdrawalsList(db: AppDb, status?: string) {
+  const rows = await db
+    .select()
+    .from(withdrawals)
+    .where(status ? eq(withdrawals.status, status) : undefined)
+    .orderBy(desc(withdrawals.requestedAt))
+    .limit(ROW_LIMIT);
+
+  const userMap = await usersById(db, [...new Set(rows.map((r) => r.userId))]);
+  const totals = await db
+    .select({ status: withdrawals.status, total: sql<number>`coalesce(sum(${withdrawals.amountUsdCents}),0)`, count: sql<number>`count(*)` })
+    .from(withdrawals)
+    .groupBy(withdrawals.status);
+
+  return {
+    withdrawals: rows.map((r) => ({ ...r, user: userMap.get(r.userId) ?? null })),
+    totals: totals.map((t) => ({ status: t.status, totalUsdCents: Number(t.total), count: Number(t.count) })),
+  };
+}
+
+export { markWithdrawalPaid, rejectWithdrawal };
 
 export async function getActivityList(db: AppDb) {
   const activeCopiesRows = await db.select().from(copies).where(eq(copies.active, true)).orderBy(desc(copies.startedAt)).limit(ROW_LIMIT);

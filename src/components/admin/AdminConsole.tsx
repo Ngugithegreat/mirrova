@@ -5,6 +5,7 @@ import { cx } from "@/lib/format";
 import OverviewTab from "./OverviewTab";
 import UsersTab from "./UsersTab";
 import DepositsTab from "./DepositsTab";
+import WithdrawalsTab from "./WithdrawalsTab";
 import ActivityTab from "./ActivityTab";
 import DeskTab from "./DeskTab";
 
@@ -12,6 +13,7 @@ const TABS = [
   { key: "overview", label: "Overview" },
   { key: "users", label: "Users" },
   { key: "deposits", label: "Deposits" },
+  { key: "withdrawals", label: "Withdrawals" },
   { key: "activity", label: "Copy activity" },
   { key: "desk", label: "Desk" },
 ] as const;
@@ -64,6 +66,7 @@ export default function AdminConsole() {
         {tab === "overview" && <OverviewTab />}
         {tab === "users" && <UsersTab />}
         {tab === "deposits" && <DepositsTab />}
+        {tab === "withdrawals" && <WithdrawalsTab />}
         {tab === "activity" && <ActivityTab />}
         {tab === "desk" && <DeskTab />}
       </div>

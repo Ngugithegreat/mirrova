@@ -11,6 +11,7 @@ import { join } from "path";
 import * as schema from "../src/db/schema";
 import { signUp, logIn, logOut, getUserByToken, startCopy, stopCopy, getPortfolio } from "../src/server/account";
 import { allocateReal, switchAccountType } from "../src/server/realAccount";
+import { requestWithdrawal, markWithdrawalPaid, rejectWithdrawal } from "../src/server/withdrawals";
 import { openPosition, listPositions, closePosition } from "../src/server/desk";
 import { users, payments, deskPositions } from "../src/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -265,6 +266,50 @@ async function main() {
     "auto-close credited stake + P&L back to practice cash",
     afterAutoClose.cashCents === beforeAutoClose.cashCents + slPos.stakeUsdCents + (closedRow.pnlCents ?? 0)
   );
+
+  // --- withdrawals: request locks funds immediately, reject refunds them ---
+  const wSignup = await signUp(db, "Withdraw Tester", "withdraw@example.com", "hunter22", "standard");
+  check("withdrawal-test signup succeeds", wSignup.ok);
+  const [wUser] = await db.select().from(users).where(eq(users.email, "withdraw@example.com"));
+  await db.update(users).set({ realCashCents: 10_000 }).where(eq(users.id, wUser.id)); // $100 available
+
+  const reqTooBig = await requestWithdrawal(db, wUser.id, 20_000, "0712345678");
+  check("requesting more than the available real balance is rejected", !reqTooBig.ok);
+
+  const reqTooSmall = await requestWithdrawal(db, wUser.id, 100, "0712345678");
+  check("requesting below the $5 minimum is rejected", !reqTooSmall.ok);
+
+  const req1 = await requestWithdrawal(db, wUser.id, 3_000, "0712345678"); // $30
+  check("a valid withdrawal request succeeds", req1.ok);
+
+  const [afterRequest] = await db.select().from(users).where(eq(users.id, wUser.id));
+  check("requesting a withdrawal debits the real balance immediately", afterRequest.realCashCents === 7_000);
+
+  const [pendingRow] = await db.select().from(schema.withdrawals).where(eq(schema.withdrawals.userId, wUser.id));
+  check("the withdrawal is recorded as pending", pendingRow.status === "pending" && pendingRow.amountUsdCents === 3_000);
+
+  const payTwice1 = await markWithdrawalPaid(db, pendingRow.id);
+  check("marking a withdrawal paid succeeds", payTwice1.ok);
+  const payTwice2 = await markWithdrawalPaid(db, pendingRow.id);
+  check("marking an already-resolved withdrawal paid again is rejected", !payTwice2.ok);
+
+  const [afterPaid] = await db.select().from(users).where(eq(users.id, wUser.id));
+  check("marking paid does not touch the real balance again", afterPaid.realCashCents === 7_000);
+
+  const req2 = await requestWithdrawal(db, wUser.id, 2_000, "0712345678"); // $20
+  check("a second withdrawal request succeeds", req2.ok);
+  const [afterSecondRequest] = await db.select().from(users).where(eq(users.id, wUser.id));
+  check("the second request also debits immediately", afterSecondRequest.realCashCents === 5_000);
+
+  const [secondRow] = await db
+    .select()
+    .from(schema.withdrawals)
+    .where(and(eq(schema.withdrawals.userId, wUser.id), eq(schema.withdrawals.status, "pending")));
+
+  const rejectResult = await rejectWithdrawal(db, secondRow.id);
+  check("rejecting a pending withdrawal succeeds", rejectResult.ok);
+  const [afterReject] = await db.select().from(users).where(eq(users.id, wUser.id));
+  check("rejecting a withdrawal refunds the real balance", afterReject.realCashCents === 7_000);
 
   // --- admin auth: stateless HMAC-signed cookie, no DB involved ---
   const priorAdminPassword = process.env.ADMIN_PASSWORD;

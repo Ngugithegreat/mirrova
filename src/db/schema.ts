@@ -100,3 +100,20 @@ export const deskPositions = pgTable("desk_positions", {
   closePrice: doublePrecision("close_price"),
   pnlCents: integer("pnl_cents"),
 });
+
+/** A withdrawal request debits realCashCents immediately (funds are locked
+ * the moment a request is made, same "commit first" pattern as
+ * realAllocations) — paid out manually since there's no automated payout
+ * rail; rejecting one refunds realCashCents since the lock was provisional. */
+export const withdrawals = pgTable("withdrawals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  amountUsdCents: integer("amount_usd_cents").notNull(),
+  phone: text("phone").notNull(),
+  status: text("status").notNull().default("pending"), // pending | paid | rejected
+  note: text("note"),
+  requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+});

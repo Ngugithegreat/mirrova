@@ -7,7 +7,10 @@ export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ user: null });
 
-  const { realCashCents, allocation, payments, accountType, totalDepositedUsdCents, eligibleAccountTypes } = await getRealAccount(getDb(), user.id);
+  const { realCashCents, allocation, payments, withdrawals, accountType, totalDepositedUsdCents, eligibleAccountTypes } = await getRealAccount(
+    getDb(),
+    user.id
+  );
 
   return NextResponse.json({
     realCashCents,
@@ -24,6 +27,13 @@ export async function GET() {
       creditedUsdCents: p.creditedUsdCents,
       createdAt: p.createdAt,
       checkoutRequestId: p.checkoutRequestId,
+    })),
+    withdrawals: withdrawals.map((w) => ({
+      id: w.id,
+      amountUsdCents: w.amountUsdCents,
+      status: w.status,
+      requestedAt: w.requestedAt,
+      note: w.note,
     })),
     accountType: {
       id: accountType.id,
