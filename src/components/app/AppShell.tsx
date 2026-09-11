@@ -16,8 +16,10 @@ const NAV = [
   { href: "/dashboard", label: "Overview", icon: "grid" },
   { href: "/traders", label: "Copy traders", icon: "users" },
   { href: "/desk", label: "Trading desk", icon: "chart" },
+  { href: "/portfolio", label: "Portfolio", icon: "bars" },
   { href: "/wallet", label: "Wallet", icon: "wallet" },
   { href: "/verify", label: "Verify identity", icon: "shield" },
+  { href: "/settings", label: "Settings", icon: "gear" },
 ] as const;
 
 function NavIcon({ name, className }: { name: (typeof NAV)[number]["icon"]; className?: string }) {
@@ -60,6 +62,19 @@ function NavIcon({ name, className }: { name: (typeof NAV)[number]["icon"]; clas
         <svg className={className} {...common}>
           <path d="M12 3.5l7 2.8v5.4c0 4.4-2.9 7.9-7 9.3-4.1-1.4-7-4.9-7-9.3V6.3z" />
           <path d="M8.8 12.2l2.1 2.1 4.3-4.3" />
+        </svg>
+      );
+    case "bars":
+      return (
+        <svg className={className} {...common}>
+          <path d="M4 20V13M11.5 20V4M19 20v-9" />
+        </svg>
+      );
+    case "gear":
+      return (
+        <svg className={className} {...common}>
+          <circle cx="12" cy="12" r="3.2" />
+          <path d="M12 3.5v2.3M12 18.2v2.3M20.5 12h-2.3M5.8 12H3.5M17.7 6.3l-1.6 1.6M7.9 16.1l-1.6 1.6M17.7 17.7l-1.6-1.6M7.9 7.9 6.3 6.3" />
         </svg>
       );
   }

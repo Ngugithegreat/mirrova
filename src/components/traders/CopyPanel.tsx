@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { account, useAccountState } from "@/lib/accountClient";
+import { realAccount, useRealAccountState } from "@/lib/realAccountClient";
+import { useSessionMode } from "@/lib/sessionMode";
 import { fmtMoney } from "@/lib/format";
 
 type Props = {
@@ -15,18 +17,21 @@ type Props = {
 
 export default function CopyPanel({ slug, name, perfFee, minCopy }: Props) {
   const state = useAccountState();
+  const real = useRealAccountState();
+  const mode = useSessionMode();
   const router = useRouter();
   const [amount, setAmount] = useState(1000);
   const [stop, setStop] = useState(20);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const already = state.copies.some((c) => c.slug === slug);
   const first = name.split(" ")[0];
+  const alreadyDemo = state.copies.some((c) => c.slug === slug);
+  const alreadyReal = real.allocation?.slug === slug;
 
-  async function start() {
+  async function startDemo() {
     setError(null);
-    if (!state.user) {
+    if (state.ready && !state.user) {
       router.push(`/signup?copy=${slug}`);
       return;
     }
@@ -45,7 +50,94 @@ export default function CopyPanel({ slug, name, perfFee, minCopy }: Props) {
     }
   }
 
-  if (already) {
+  async function startReal() {
+    setError(null);
+    if (state.ready && !state.user) {
+      router.push(`/signup?copy=${slug}`);
+      return;
+    }
+    if (real.realCashCents <= 0) {
+      router.push("/wallet");
+      return;
+    }
+    setBusy(true);
+    try {
+      await realAccount.allocate(slug);
+      router.push("/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // --- Real mode: all-or-nothing, no amount picker at all ---
+  if (mode === "real") {
+    if (alreadyReal) {
+      return (
+        <div className="panel glow-ring p-6">
+          <div className="flex items-center gap-2.5 text-mint">
+            <svg viewBox="0 0 20 20" className="h-5 w-5" fill="currentColor" aria-hidden="true">
+              <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.7-9.8a1 1 0 0 0-1.4-1.4L9 10.1 7.7 8.8a1 1 0 1 0-1.4 1.4l2 2a1 1 0 0 0 1.4 0l4-4Z" />
+            </svg>
+            <span className="font-semibold">You&apos;re copying {first} with real funds</span>
+          </div>
+          <p className="mt-2 text-sm text-ink-2">Manage the allocation and see your live position from your wallet.</p>
+          <Link href="/wallet" className="mt-4 block sheen relative overflow-hidden rounded-full bg-gradient-to-r from-violet via-mint to-fuchsia py-3 text-center text-sm font-semibold text-[#06060c]">
+            Open wallet
+          </Link>
+        </div>
+      );
+    }
+    if (real.allocation) {
+      return (
+        <div className="panel p-6">
+          <h3 className="font-display text-lg font-semibold text-ink">Copy {first} with real funds</h3>
+          <p className="mt-3 text-sm text-ink-2">
+            You already have an active real allocation to another trader — real allocations are one at a time. Stop
+            it from your wallet before switching.
+          </p>
+          <Link href="/wallet" className="mt-4 block rounded-full border border-line py-3 text-center text-sm font-medium text-ink-2 transition-colors hover:border-mint/50 hover:text-mint">
+            Go to wallet
+          </Link>
+        </div>
+      );
+    }
+    return (
+      <div className="panel glow-ring p-6">
+        <h3 className="font-display text-lg font-semibold text-ink">Copy {first} with real funds</h3>
+        <p className="mt-3 text-sm leading-relaxed text-ink-2">
+          Real allocations are all-or-nothing — your full available real balance
+          {real.ready && real.realCashCents > 0 ? <> ({fmtMoney(real.realCashCents / 100, 2)})</> : null} goes to
+          this trader, no partial amounts.
+        </p>
+        <div className="mt-5 space-y-2 border-t border-line-soft pt-4 text-sm">
+          <div className="flex justify-between">
+            <span className="text-ink-2">Performance fee</span>
+            <span className="tnum text-ink">{perfFee}% of profits</span>
+          </div>
+        </div>
+        {error && <p className="mt-3 text-sm text-neg">{error}</p>}
+        <button
+          onClick={startReal}
+          disabled={busy}
+          className="mt-5 w-full sheen relative overflow-hidden rounded-full bg-gradient-to-r from-violet via-mint to-fuchsia py-3.5 text-sm font-semibold text-[#06060c] disabled:opacity-60"
+        >
+          {busy
+            ? "Please wait…"
+            : real.ready && real.realCashCents <= 0
+              ? "Deposit to start copying"
+              : `Allocate full balance to ${first}`}
+        </button>
+        <p className="mt-3 text-center text-[11px] leading-relaxed text-ink-3">
+          Real money — capital at risk. Not available in every jurisdiction.
+        </p>
+      </div>
+    );
+  }
+
+  // --- Demo mode: unchanged sized/multi-trader flow ---
+  if (alreadyDemo) {
     return (
       <div className="panel glow-ring p-6">
         <div className="flex items-center gap-2.5 text-mint">
@@ -120,7 +212,7 @@ export default function CopyPanel({ slug, name, perfFee, minCopy }: Props) {
       {error && <p className="mt-3 text-sm text-neg">{error}</p>}
 
       <button
-        onClick={start}
+        onClick={startDemo}
         disabled={busy}
         className="mt-5 w-full sheen relative overflow-hidden rounded-full bg-gradient-to-r from-violet via-mint to-fuchsia py-3.5 text-sm font-semibold text-[#06060c] disabled:opacity-60"
       >

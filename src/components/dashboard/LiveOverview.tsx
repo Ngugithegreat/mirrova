@@ -28,7 +28,12 @@ export default function LiveOverview() {
           Real account
         </span>
       </p>
-      <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight">Overview</h1>
+      <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
+        <h1 className="font-display text-4xl font-semibold tracking-tight">Overview</h1>
+        <Link href="/portfolio" className="text-sm font-medium text-mint transition-colors hover:underline">
+          Portfolio →
+        </Link>
+      </div>
 
       {real.accountType && (
         <Link

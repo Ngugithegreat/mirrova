@@ -85,6 +85,12 @@ export async function getPortfolio(db: AppDb, userId: string) {
     .select()
     .from(copies)
     .where(and(eq(copies.userId, userId), eq(copies.active, true)));
+  const closedCopies = await db
+    .select()
+    .from(copies)
+    .where(and(eq(copies.userId, userId), eq(copies.active, false)))
+    .orderBy(desc(copies.stoppedAt))
+    .limit(20);
   const recentActivity = await db
     .select()
     .from(activity)
@@ -92,7 +98,7 @@ export async function getPortfolio(db: AppDb, userId: string) {
     .orderBy(desc(activity.createdAt))
     .limit(20);
   const accountType = await getUserAccountType(db, userId);
-  return { copies: userCopies, activity: recentActivity, accountType };
+  return { copies: userCopies, closedCopies, activity: recentActivity, accountType };
 }
 
 export async function startCopy(
@@ -159,7 +165,10 @@ export async function stopCopy(db: AppDb, userId: string, traderSlug: string): P
   const feeCents = profitCents > 0 && trader ? Math.round((profitCents * trader.perfFee) / 100) : 0;
   const valueCents = grossValueCents - feeCents;
 
-  await db.update(copies).set({ active: false, stoppedAt: new Date() }).where(eq(copies.id, copy.id));
+  await db
+    .update(copies)
+    .set({ active: false, stoppedAt: new Date(), valueCents, pnlCents: valueCents - copy.amountCents })
+    .where(eq(copies.id, copy.id));
   await db.update(users).set({ cashCents: user.cashCents + valueCents }).where(eq(users.id, userId));
   await db.insert(activity).values({
     userId,
@@ -170,4 +179,47 @@ export async function stopCopy(db: AppDb, userId: string, traderSlug: string): P
   });
 
   return { ok: true, valueCents, feeCents };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export async function updateName(db: AppDb, userId: string, name: string): Promise<Result<{}>> {
+  const trimmed = name.trim();
+  if (trimmed.length < 2) return fail("Enter your name.");
+  await db.update(users).set({ name: trimmed }).where(eq(users.id, userId));
+  return { ok: true };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export async function changePassword(db: AppDb, userId: string, currentPassword: string, newPassword: string): Promise<Result<{}>> {
+  if (newPassword.length < 8) return fail("New password must be at least 8 characters.");
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!user) return fail("Not signed in.");
+  if (!verifyPassword(currentPassword, user.passwordHash)) return fail("Current password is incorrect.");
+  await db.update(users).set({ passwordHash: hashPassword(newPassword) }).where(eq(users.id, userId));
+  return { ok: true };
+}
+
+export async function updateNotificationPrefs(
+  db: AppDb,
+  userId: string,
+  prefs: { notifyProductUpdates?: boolean; notifySignalAlerts?: boolean }
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+): Promise<Result<{}>> {
+  await db.update(users).set(prefs).where(eq(users.id, userId));
+  return { ok: true };
+}
+
+/** Resets the practice balance to the account type's demo credit and stops
+ * every active demo copy (returning nothing to cash first — this is a hard
+ * reset for testing, not a "stop and settle" action). Never touches
+ * realCashCents or any real allocation. */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export async function resetDemoAccount(db: AppDb, userId: string): Promise<Result<{}>> {
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!user) return fail("Not signed in.");
+  const accountType = await getUserAccountType(db, userId);
+  await db.update(copies).set({ active: false, stoppedAt: new Date() }).where(and(eq(copies.userId, userId), eq(copies.active, true)));
+  await db.update(users).set({ cashCents: accountType.demoCreditCents }).where(eq(users.id, userId));
+  await db.insert(activity).values({ userId, text: "Reset demo account to a fresh practice balance" });
+  return { ok: true };
 }

@@ -13,7 +13,6 @@ import { fmtMoney } from "@/lib/format";
 import { cx } from "@/lib/format";
 
 const GUEST_LINKS = [
-  { href: "/traders", label: "Traders" },
   { href: "/how-it-works", label: "Method" },
   { href: "/pricing", label: "Fees" },
   { href: "/learn", label: "Academy" },

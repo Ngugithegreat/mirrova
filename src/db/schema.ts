@@ -8,6 +8,8 @@ export const users = pgTable("users", {
   cashCents: integer("cash_cents").notNull(), // practice balance, USD minor units
   realCashCents: integer("real_cash_cents").notNull().default(0), // real, unallocated USD minor units — actual M-Pesa deposits
   accountType: text("account_type").notNull().default("standard"), // standard | ecn | pro | swapFree — chosen at signup, switchable later
+  notifyProductUpdates: boolean("notify_product_updates").notNull().default(true),
+  notifySignalAlerts: boolean("notify_signal_alerts").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -32,6 +34,8 @@ export const copies = pgTable("copies", {
   active: boolean("active").notNull().default(true),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
   stoppedAt: timestamp("stopped_at", { withTimezone: true }),
+  valueCents: integer("value_cents"), // set on stop — the settled amount returned to cash, net of fees
+  pnlCents: integer("pnl_cents"), // set on stop — valueCents - amountCents
 });
 
 export const activity = pgTable("activity", {

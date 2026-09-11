@@ -1,7 +1,7 @@
 import { TOP_TRADERS } from "@/lib/traders";
 import TraderCard from "@/components/ui/TraderCard";
 import Reveal from "@/components/ui/Reveal";
-import { ButtonLink } from "@/components/ui/Button";
+import TradersLink from "@/components/ui/TradersLink";
 
 export default function TopTradersSection() {
   return (
@@ -18,9 +18,9 @@ export default function TopTradersSection() {
               gains — that is the point.
             </p>
           </div>
-          <ButtonLink href="/traders" variant="secondary" className="shrink-0">
+          <TradersLink variant="secondary" size="md" className="shrink-0">
             View all 36 strategies
-          </ButtonLink>
+          </TradersLink>
         </Reveal>
 
         <div className="mt-12 grid gap-5 md:grid-cols-2 xl:grid-cols-3">

@@ -9,7 +9,19 @@ import { drizzle } from "drizzle-orm/pglite";
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import * as schema from "../src/db/schema";
-import { signUp, logIn, logOut, getUserByToken, startCopy, stopCopy, getPortfolio } from "../src/server/account";
+import {
+  signUp,
+  logIn,
+  logOut,
+  getUserByToken,
+  startCopy,
+  stopCopy,
+  getPortfolio,
+  updateName,
+  changePassword,
+  updateNotificationPrefs,
+  resetDemoAccount,
+} from "../src/server/account";
 import { allocateReal, switchAccountType } from "../src/server/realAccount";
 import { requestWithdrawal, markWithdrawalPaid, rejectWithdrawal } from "../src/server/withdrawals";
 import { openPosition, listPositions, closePosition } from "../src/server/desk";
@@ -409,6 +421,44 @@ async function main() {
 
   if (priorAdminPassword === undefined) delete process.env.ADMIN_PASSWORD;
   else process.env.ADMIN_PASSWORD = priorAdminPassword;
+
+  // --- settings: name, password, notification prefs, demo reset ---
+  const badName = await updateName(db, alex.id, "x");
+  check("a too-short name is rejected", !badName.ok);
+
+  const goodName = await updateName(db, alex.id, "Alex Updated");
+  check("updating the name succeeds", goodName.ok);
+  const [afterNameUpdate] = await db.select().from(users).where(eq(users.id, alex.id));
+  check("the new name is persisted", afterNameUpdate.name === "Alex Updated");
+
+  const wrongCurrentPw = await changePassword(db, alex.id, "not-the-current-password", "newpassword123");
+  check("changing password with the wrong current password is rejected", !wrongCurrentPw.ok);
+
+  const tooShortNewPw = await changePassword(db, alex.id, "hunter22", "short");
+  check("changing to a too-short new password is rejected", !tooShortNewPw.ok);
+
+  const pwChange = await changePassword(db, alex.id, "hunter22", "newpassword123");
+  check("changing password with the correct current password succeeds", pwChange.ok);
+  const loginOldPw = await logIn(db, "alex@example.com", "hunter22");
+  check("the old password no longer works after changing it", !loginOldPw.ok);
+  const loginNewPw = await logIn(db, "alex@example.com", "newpassword123");
+  check("the new password works after changing it", loginNewPw.ok);
+
+  const notifPrefs = await updateNotificationPrefs(db, alex.id, { notifyProductUpdates: false });
+  check("updating notification prefs succeeds", notifPrefs.ok);
+  const [afterNotifUpdate] = await db.select().from(users).where(eq(users.id, alex.id));
+  check("notifyProductUpdates was updated", afterNotifUpdate.notifyProductUpdates === false);
+  check("notifySignalAlerts was left untouched", afterNotifUpdate.notifySignalAlerts === true);
+
+  await startCopy(db, alex.id, "daniel-kim", 5_000, 20, 10);
+  const [beforeReset] = await db.select().from(users).where(eq(users.id, alex.id));
+  const resetResult = await resetDemoAccount(db, alex.id);
+  check("resetting the demo account succeeds", resetResult.ok);
+  const [afterReset] = await db.select().from(users).where(eq(users.id, alex.id));
+  check("resetting restores the demo credit for the user's account type", afterReset.cashCents === standardDemoCredit);
+  check("a reset never touches realCashCents", afterReset.realCashCents === beforeReset.realCashCents);
+  const activeCopiesAfterReset = await db.select().from(schema.copies).where(and(eq(schema.copies.userId, alex.id), eq(schema.copies.active, true)));
+  check("resetting stops every active demo copy", activeCopiesAfterReset.length === 0);
 
   // --- logout ---
   await logOut(db, s1.token);

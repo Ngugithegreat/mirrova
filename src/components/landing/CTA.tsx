@@ -1,6 +1,6 @@
 import Reveal from "@/components/ui/Reveal";
-import { ButtonLink } from "@/components/ui/Button";
 import SmartCTA from "@/components/ui/SmartCTA";
+import TradersLink from "@/components/ui/TradersLink";
 import TradeNetwork from "@/components/motion/TradeNetwork";
 import { PLATFORM_STATS } from "@/lib/traders";
 import { fmtCount } from "@/lib/format";
@@ -27,9 +27,7 @@ export default function CTA() {
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-5">
             <SmartCTA signedOutLabel="Create your account" />
-            <ButtonLink href="/traders" variant="secondary" size="lg">
-              Study the register first
-            </ButtonLink>
+            <TradersLink>Study the register first</TradersLink>
           </div>
           <p className="mt-8 text-xs text-ink-3">Capital at risk. No card required to browse.</p>
         </Reveal>

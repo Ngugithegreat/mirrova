@@ -174,16 +174,24 @@ export async function getEngineView(db: AppDb, userId: string): Promise<{ open: 
     }
   }
 
+  const recentlyClosed = await listClosedCopyPositions(db, userId, 5);
+
+  return { open, recentlyClosed };
+}
+
+/** Shared by getEngineView's compact widget (limit 5) and the Portfolio
+ * analytics page, which wants a deeper history. */
+export async function listClosedCopyPositions(db: AppDb, userId: string, limit = 5): Promise<EngineClosedPosition[]> {
   const closedRows = await db
     .select()
     .from(copyPositions)
     .where(and(eq(copyPositions.userId, userId), eq(copyPositions.active, false)))
     .orderBy(desc(copyPositions.closedAt))
-    .limit(5);
-  const recentlyClosed: EngineClosedPosition[] = [];
+    .limit(limit);
+  const out: EngineClosedPosition[] = [];
   for (const cp of closedRows) {
     const [pos] = await db.select().from(providerPositions).where(eq(providerPositions.id, cp.providerPositionId)).limit(1);
-    recentlyClosed.push({
+    out.push({
       instrument: pos?.instrument ?? "—",
       side: pos?.side ?? "long",
       sizeUsdCents: cp.sizeUsdCents,
@@ -191,8 +199,7 @@ export async function getEngineView(db: AppDb, userId: string): Promise<{ open: 
       closedAt: cp.closedAt,
     });
   }
-
-  return { open, recentlyClosed };
+  return out;
 }
 
 /** Read-only admin view across every trader — no manual open/close controls

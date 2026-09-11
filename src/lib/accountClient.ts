@@ -10,6 +10,15 @@ export type AccountCopy = {
   currentValueCents: number;
 };
 
+export type ClosedAccountCopy = {
+  slug: string;
+  amountCents: number;
+  valueCents: number;
+  pnlCents: number;
+  startedAt: string;
+  stoppedAt: string;
+};
+
 export type AccountTypeSummary = {
   id: string;
   name: string;
@@ -24,11 +33,24 @@ export type AccountState = {
   user: { name: string; email: string } | null;
   cashCents: number;
   copies: AccountCopy[];
+  closedCopies: ClosedAccountCopy[];
   activity: { text: string; createdAt: string }[];
   accountType: AccountTypeSummary | null;
+  notifyProductUpdates: boolean;
+  notifySignalAlerts: boolean;
 };
 
-const EMPTY: AccountState = { ready: false, user: null, cashCents: 0, copies: [], activity: [], accountType: null };
+const EMPTY: AccountState = {
+  ready: false,
+  user: null,
+  cashCents: 0,
+  copies: [],
+  closedCopies: [],
+  activity: [],
+  accountType: null,
+  notifyProductUpdates: true,
+  notifySignalAlerts: true,
+};
 
 let state: AccountState = EMPTY;
 const listeners = new Set<() => void>();
@@ -69,8 +91,11 @@ export async function refreshAccount() {
       user: data.user,
       cashCents: data.cashCents ?? 0,
       copies: data.copies ?? [],
+      closedCopies: data.closedCopies ?? [],
       activity: data.activity ?? [],
       accountType: data.accountType ?? null,
+      notifyProductUpdates: data.notifyProductUpdates ?? true,
+      notifySignalAlerts: data.notifySignalAlerts ?? true,
     });
   } catch {
     setState({ ...EMPTY, ready: true });
@@ -104,6 +129,21 @@ export const account = {
   },
   async stopCopy(slug: string) {
     await fetchJson("/api/copy/stop", { method: "POST", body: JSON.stringify({ slug }) });
+    await refreshAccount();
+  },
+  async updateName(name: string) {
+    await fetchJson("/api/account", { method: "PATCH", body: JSON.stringify({ name }) });
+    await refreshAccount();
+  },
+  async changePassword(currentPassword: string, newPassword: string) {
+    await fetchJson("/api/account/password", { method: "PATCH", body: JSON.stringify({ currentPassword, newPassword }) });
+  },
+  async updateNotificationPrefs(prefs: { notifyProductUpdates?: boolean; notifySignalAlerts?: boolean }) {
+    await fetchJson("/api/account/notifications", { method: "PATCH", body: JSON.stringify(prefs) });
+    await refreshAccount();
+  },
+  async resetDemo() {
+    await fetchJson("/api/account/reset-demo", { method: "POST" });
     await refreshAccount();
   },
 };

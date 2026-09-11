@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { ButtonLink } from "@/components/ui/Button";
 import SmartCTA from "@/components/ui/SmartCTA";
+import TradersLink from "@/components/ui/TradersLink";
 import TraderAvatar from "@/components/ui/TraderAvatar";
 import Sparkline from "@/components/charts/Sparkline";
 import LiveChart from "@/components/motion/LiveChart";
@@ -49,9 +49,7 @@ export default function Hero() {
 
           <div className="mt-9 flex flex-wrap items-center gap-4">
             <SmartCTA signedOutLabel="Start copying free" />
-            <ButtonLink href="/traders" variant="secondary" size="lg">
-              Browse top traders
-            </ButtonLink>
+            <TradersLink>Browse top traders</TradersLink>
           </div>
 
           <dl className="mt-12 grid max-w-xl grid-cols-3 gap-6 border-t border-line pt-6">
