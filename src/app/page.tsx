@@ -8,6 +8,7 @@ import StatsStrip from "@/components/landing/StatsStrip";
 import HowItWorks from "@/components/landing/HowItWorks";
 import TopTradersSection from "@/components/landing/TopTradersSection";
 import Features from "@/components/landing/Features";
+import GlobalReach from "@/components/landing/GlobalReach";
 import Protection from "@/components/landing/Protection";
 import Fees from "@/components/landing/Fees";
 import Testimonials from "@/components/landing/Testimonials";
@@ -27,6 +28,7 @@ export default function Home() {
         <PhoneSection />
         <TopTradersSection />
         <Features />
+        <GlobalReach />
         <Protection />
         <Fees />
         <Testimonials />
