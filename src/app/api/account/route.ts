@@ -8,11 +8,12 @@ export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ user: null });
 
-  const { copies, activity } = await getPortfolio(getDb(), user.id);
+  const { copies, activity, tier } = await getPortfolio(getDb(), user.id);
 
   return NextResponse.json({
     user: { name: user.name, email: user.email },
     cashCents: user.cashCents,
+    tier: { id: tier.id, name: tier.name, maxConcurrentCopies: tier.maxConcurrentCopies, feeDiscountPts: tier.feeDiscountPts },
     copies: copies.map((c) => ({
       slug: c.traderSlug,
       amountCents: c.amountCents,

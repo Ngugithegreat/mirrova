@@ -121,6 +121,41 @@ export default function RealWallet() {
           not available in every jurisdiction.
         </p>
 
+        {real.tier && (
+          <div className="panel mt-6 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <span className="rounded-full border border-mint/30 bg-mint/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-mint">
+                  {real.tier.name} tier
+                </span>
+                <span className="text-sm text-ink-2">
+                  Unlocked by ${(real.totalDepositedUsdCents / 100).toLocaleString()} in lifetime deposits
+                </span>
+              </div>
+              <Link href="/pricing#tiers" className="text-xs font-medium text-mint hover:underline">
+                Compare tiers →
+              </Link>
+            </div>
+            {real.nextTier && (
+              <div className="mt-4">
+                <div className="h-1.5 w-full rounded-full bg-line-soft">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-violet to-mint"
+                    style={{
+                      width: `${Math.min(100, (real.totalDepositedUsdCents / real.nextTier.minDepositUsdCents) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-ink-3">
+                  Deposit ${((real.nextTier.minDepositUsdCents - real.totalDepositedUsdCents) / 100).toLocaleString()}{" "}
+                  more to unlock <span className="text-ink-2">{real.nextTier.name}</span> — more concurrent practice
+                  copies, a bigger performance-fee discount, and more instruments on the Desk.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
           {/* Deposit */}
           <div className="panel glow-ring p-6">

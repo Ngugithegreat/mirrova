@@ -7,7 +7,7 @@ export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ user: null });
 
-  const { realCashCents, allocation, payments } = await getRealAccount(getDb(), user.id);
+  const { realCashCents, allocation, payments, tier, totalDepositedUsdCents, nextTier } = await getRealAccount(getDb(), user.id);
 
   return NextResponse.json({
     realCashCents,
@@ -25,5 +25,8 @@ export async function GET() {
       createdAt: p.createdAt,
       checkoutRequestId: p.checkoutRequestId,
     })),
+    tier: { id: tier.id, name: tier.name, maxConcurrentCopies: tier.maxConcurrentCopies, feeDiscountPts: tier.feeDiscountPts },
+    totalDepositedUsdCents,
+    nextTier: nextTier ? { id: nextTier.id, name: nextTier.name, minDepositUsdCents: nextTier.minDepositUsdCents } : null,
   });
 }

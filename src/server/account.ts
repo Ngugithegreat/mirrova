@@ -3,6 +3,8 @@ import { users, sessions, copies, activity } from "@/db/schema";
 import type { AppDb } from "@/db/types";
 import { hashPassword, verifyPassword, newSessionToken, hashToken } from "./auth";
 import { computeCopyValueCents } from "@/lib/copyValue";
+import { getTrader } from "@/lib/traders";
+import { getUserTier } from "./tiers";
 
 export const START_CASH_CENTS = 100_000 * 100; // $100,000 practice balance
 const SESSION_DAYS = 30;
@@ -86,7 +88,8 @@ export async function getPortfolio(db: AppDb, userId: string) {
     .where(eq(activity.userId, userId))
     .orderBy(desc(activity.createdAt))
     .limit(20);
-  return { copies: userCopies, activity: recentActivity };
+  const { tier } = await getUserTier(db, userId);
+  return { copies: userCopies, activity: recentActivity, tier };
 }
 
 export async function startCopy(
@@ -111,6 +114,15 @@ export async function startCopy(
     .limit(1);
   if (already) return fail("You're already copying this trader.");
 
+  const activeCopies = await db
+    .select({ id: copies.id })
+    .from(copies)
+    .where(and(eq(copies.userId, userId), eq(copies.active, true)));
+  const { tier } = await getUserTier(db, userId);
+  if (activeCopies.length >= tier.maxConcurrentCopies) {
+    return fail(`Your ${tier.name} tier allows up to ${tier.maxConcurrentCopies} concurrent copies — stop one first, or reach the next tier by depositing more into your real wallet.`);
+  }
+
   await db.insert(copies).values({ userId, traderSlug, amountCents, stopLossPct });
   await db.update(users).set({ cashCents: user.cashCents - amountCents }).where(eq(users.id, userId));
   await db.insert(activity).values({
@@ -121,7 +133,7 @@ export async function startCopy(
   return { ok: true };
 }
 
-export async function stopCopy(db: AppDb, userId: string, traderSlug: string): Promise<Result<{ valueCents: number }>> {
+export async function stopCopy(db: AppDb, userId: string, traderSlug: string): Promise<Result<{ valueCents: number; feeCents: number }>> {
   const [copy] = await db
     .select()
     .from(copies)
@@ -132,19 +144,32 @@ export async function stopCopy(db: AppDb, userId: string, traderSlug: string): P
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user) return fail("Not signed in.");
 
-  const valueCents = computeCopyValueCents({
+  const grossValueCents = computeCopyValueCents({
     slug: copy.traderSlug,
     amountCents: copy.amountCents,
     stopLossPct: copy.stopLossPct,
     startedAt: copy.startedAt,
   });
 
+  const trader = getTrader(copy.traderSlug);
+  const profitCents = Math.max(0, grossValueCents - copy.amountCents);
+  let feeCents = 0;
+  if (profitCents > 0 && trader) {
+    const { tier } = await getUserTier(db, userId);
+    const feePct = Math.max(0, trader.perfFee - tier.feeDiscountPts);
+    feeCents = Math.round((profitCents * feePct) / 100);
+  }
+  const valueCents = grossValueCents - feeCents;
+
   await db.update(copies).set({ active: false, stoppedAt: new Date() }).where(eq(copies.id, copy.id));
   await db.update(users).set({ cashCents: user.cashCents + valueCents }).where(eq(users.id, userId));
   await db.insert(activity).values({
     userId,
-    text: `Stopped copying ${traderSlug} — $${Math.round(valueCents / 100).toLocaleString()} returned to cash`,
+    text:
+      feeCents > 0
+        ? `Stopped copying ${traderSlug} — $${Math.round(valueCents / 100).toLocaleString()} returned to cash (performance fee $${(feeCents / 100).toFixed(2)})`
+        : `Stopped copying ${traderSlug} — $${Math.round(valueCents / 100).toLocaleString()} returned to cash`,
   });
 
-  return { ok: true, valueCents };
+  return { ok: true, valueCents, feeCents };
 }

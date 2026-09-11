@@ -78,6 +78,24 @@ export default function Portfolio() {
         </Link>
       </div>
 
+      {state.tier && (
+        <Link
+          href="/pricing#tiers"
+          className="panel mt-6 flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 transition-colors hover:border-mint/30"
+        >
+          <div className="flex items-center gap-2.5 text-sm">
+            <span className="rounded-full border border-mint/30 bg-mint/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-mint">
+              {state.tier.name} tier
+            </span>
+            <span className="text-ink-2">
+              <span className="tnum">{positions.length}</span> / <span className="tnum">{state.tier.maxConcurrentCopies >= 999 ? "∞" : state.tier.maxConcurrentCopies}</span> copy slots used
+              {state.tier.feeDiscountPts > 0 && ` · ${state.tier.feeDiscountPts}pt performance-fee discount`}
+            </span>
+          </div>
+          <span className="text-xs font-medium text-mint">See all tiers →</span>
+        </Link>
+      )}
+
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
         <div className="panel glow-ring p-6">
           <div className="text-[11px] uppercase tracking-wide text-ink-3">Total value</div>

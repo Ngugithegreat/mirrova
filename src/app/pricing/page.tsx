@@ -4,6 +4,7 @@ import Footer from "@/components/site/Footer";
 import { ButtonLink } from "@/components/ui/Button";
 import Reveal from "@/components/ui/Reveal";
 import Auroras from "@/components/motion/Auroras";
+import { TIERS } from "@/lib/tiers";
 
 export const metadata: Metadata = {
   title: "Pricing & fees",
@@ -33,7 +34,7 @@ const SCHEDULE: { section: string; rows: [string, string, string][] }[] = [
     section: "Copying",
     rows: [
       ["Management fee", "0%", "Never a percentage of assets"],
-      ["Performance fee", "10–30%", "Set per trader · profits only · high-water mark"],
+      ["Performance fee", "10–30%", "Set per trader · profits only · reduced by your tier below"],
       ["Spread markup", "From 0.1%", "Displayed per instrument before you copy"],
       ["Overnight financing", "Varies", "Only on leveraged positions; shown per instrument"],
       ["Stopping a copy / exiting", "Free", "Any time, at market, no notice period"],
@@ -59,6 +60,74 @@ export default function PricingPage() {
             </p>
           </div>
         </div>
+
+        <section id="tiers" className="border-b border-line-soft bg-surface/20 py-16">
+          <div className="mx-auto max-w-6xl px-5 lg:px-8">
+            <Reveal>
+              <p className="eyebrow">Tiers</p>
+              <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+                Earned by what you commit, not what you promise
+              </h2>
+              <p className="mt-4 max-w-2xl text-lg text-ink-2">
+                There&apos;s no subscription to buy. Your tier is computed automatically from your lifetime
+                real deposits and unlocks more concurrent practice copies, a lower performance fee, and more
+                of the Desk — automatically, the moment you cross the threshold.
+              </p>
+            </Reveal>
+
+            <div className="mt-10 grid gap-5 lg:grid-cols-3">
+              {TIERS.map((t, i) => (
+                <Reveal key={t.id} delay={i * 100} className={`panel p-7 ${t.id === "momentum" ? "glow-ring" : ""}`}>
+                  {t.id === "momentum" && (
+                    <span className="mb-3 inline-block rounded-full border border-mint/30 bg-mint/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-mint">
+                      Most reached
+                    </span>
+                  )}
+                  <h3 className="font-display text-xl font-semibold text-ink">{t.name}</h3>
+                  <p className="mt-1.5 text-sm text-ink-2">{t.blurb}</p>
+
+                  <div className="mt-5 border-t border-line-soft pt-5">
+                    <div className="fig text-2xl font-semibold text-ink">
+                      {t.minDepositUsdCents === 0 ? "$0" : `$${(t.minDepositUsdCents / 100).toLocaleString()}+`}
+                    </div>
+                    <div className="mt-0.5 text-xs text-ink-3">lifetime real deposits</div>
+                  </div>
+
+                  <ul className="mt-5 space-y-2.5 text-sm text-ink-2">
+                    <li>
+                      <span className="tnum font-semibold text-ink">
+                        {t.maxConcurrentCopies >= 999 ? "Unlimited" : t.maxConcurrentCopies}
+                      </span>{" "}
+                      concurrent practice copies
+                    </li>
+                    <li>
+                      <span className="tnum font-semibold text-ink">{t.feeDiscountPts}pt</span> performance-fee
+                      discount
+                    </li>
+                    <li>
+                      <span className="tnum font-semibold text-ink">{t.deskInstrumentCount}</span> Desk
+                      instruments · <span className="tnum font-semibold text-ink">{t.deskLeverage}×</span> practice
+                      leverage
+                    </li>
+                    <li>
+                      {t.deskOrdersWithSlTp ? (
+                        <span className="text-ink">Stop-loss &amp; take-profit orders on the Desk</span>
+                      ) : (
+                        <span className="text-ink-3">Market orders only on the Desk</span>
+                      )}
+                    </li>
+                  </ul>
+                </Reveal>
+              ))}
+            </div>
+
+            <p className="mt-6 max-w-2xl text-xs leading-relaxed text-ink-3">
+              Tier perks apply to your practice tools, where performance is simulated. Real-money copying
+              stays exactly as protected as ever — one allocation, your full principal, no fees ever taken
+              from real funds by a tier.
+            </p>
+          </div>
+        </section>
 
         <div className="mx-auto max-w-4xl px-5 py-14">
           {SCHEDULE.map((s, i) => (

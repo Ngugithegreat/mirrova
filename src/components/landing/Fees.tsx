@@ -6,7 +6,7 @@ const ROWS = [
   ["Browsing traders & data", "Free", "Full track records, no paywall"],
   ["Management fee", "0%", "We never charge a % of your assets"],
   ["Deposits & withdrawals", "Free", "Bank transfer, card and mobile money"],
-  ["Performance fee", "10–30%", "Set by each trader · profits only · high-water mark"],
+  ["Performance fee", "10–30%", "Set by each trader · profits only · reduced by your tier"],
   ["Spread markup", "From 0.1%", "Shown per instrument before you copy"],
 ];
 
@@ -24,9 +24,12 @@ export default function Fees() {
             profits they create for you — measured against a high-water mark, so the same gain is never
             paid for twice.
           </p>
-          <div className="mt-8">
+          <div className="mt-8 flex flex-wrap gap-3">
             <ButtonLink href="/pricing" variant="secondary">
               The full fee schedule
+            </ButtonLink>
+            <ButtonLink href="/pricing#tiers" variant="secondary">
+              Core · Momentum · Apex tiers
             </ButtonLink>
           </div>
         </Reveal>

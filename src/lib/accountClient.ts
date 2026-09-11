@@ -10,15 +10,18 @@ export type AccountCopy = {
   currentValueCents: number;
 };
 
+export type AccountTier = { id: string; name: string; maxConcurrentCopies: number; feeDiscountPts: number };
+
 export type AccountState = {
   ready: boolean;
   user: { name: string; email: string } | null;
   cashCents: number;
   copies: AccountCopy[];
   activity: { text: string; createdAt: string }[];
+  tier: AccountTier | null;
 };
 
-const EMPTY: AccountState = { ready: false, user: null, cashCents: 0, copies: [], activity: [] };
+const EMPTY: AccountState = { ready: false, user: null, cashCents: 0, copies: [], activity: [], tier: null };
 
 let state: AccountState = EMPTY;
 const listeners = new Set<() => void>();
@@ -60,6 +63,7 @@ export async function refreshAccount() {
       cashCents: data.cashCents ?? 0,
       copies: data.copies ?? [],
       activity: data.activity ?? [],
+      tier: data.tier ?? null,
     });
   } catch {
     setState({ ...EMPTY, ready: true });

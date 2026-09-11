@@ -2,8 +2,10 @@ import { eq, and, desc } from "drizzle-orm";
 import { users, payments, realAllocations, activity } from "@/db/schema";
 import type { AppDb } from "@/db/types";
 import { getTrader } from "@/lib/traders";
+import { nextTier } from "@/lib/tiers";
 import { kesToUsdCents } from "./fx";
 import { stkPush, stkQuery, normalizeKenyanPhone } from "./mpesa";
+import { getUserTier } from "./tiers";
 
 type Result<T> = { ok: false; error: string } | ({ ok: true } & T);
 function fail(error: string): { ok: false; error: string } {
@@ -118,7 +120,16 @@ export async function getRealAccount(db: AppDb, userId: string) {
     .where(eq(payments.userId, userId))
     .orderBy(desc(payments.createdAt))
     .limit(10);
-  return { realCashCents: user?.realCashCents ?? 0, allocation: allocation ?? null, payments: recentPayments };
+  const { tier, totalDepositedUsdCents } = await getUserTier(db, userId);
+  const next = nextTier(tier.id);
+  return {
+    realCashCents: user?.realCashCents ?? 0,
+    allocation: allocation ?? null,
+    payments: recentPayments,
+    tier,
+    totalDepositedUsdCents,
+    nextTier: next,
+  };
 }
 
 /** All-or-nothing by design: the entire available real balance moves to one

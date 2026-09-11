@@ -12,5 +12,5 @@ export async function POST(req: Request) {
 
   const result = await stopCopy(getDb(), user.id, slug);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
-  return NextResponse.json({ ok: true, valueCents: result.valueCents });
+  return NextResponse.json({ ok: true, valueCents: result.valueCents, feeCents: result.feeCents });
 }
