@@ -30,6 +30,20 @@ async function getAccessToken(): Promise<string> {
   return cachedToken.token;
 }
 
+/**
+ * Verifies the Consumer Key/Secret are valid by fetching an OAuth token —
+ * nothing is charged and no phone is contacted. Safe to call anytime.
+ */
+export async function checkMpesaCredentials(): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    cachedToken = null; // force a fresh check, don't trust a stale cached token
+    await getAccessToken();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
 function timestamp(): string {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
