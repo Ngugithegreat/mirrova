@@ -106,7 +106,11 @@ export async function uploadKycDocument(db: AppDb, userId: string, kind: string,
   if (profile?.status === "verified") return fail("Your identity is already verified.");
 
   const pathname = `kyc/${userId}/${kind}-${randomUUID()}`;
-  await put(pathname, body, { access: "private", contentType });
+  try {
+    await put(pathname, body, { access: "private", contentType });
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : "Could not upload the document — try again shortly.");
+  }
 
   await db.insert(kycDocuments).values({ userId, kind, blobPathname: pathname, contentType });
   return { ok: true };
@@ -158,5 +162,9 @@ export async function getKycDocumentBlob(db: AppDb, pathname: string) {
   if (!pathname.startsWith("kyc/")) return null;
   const [doc] = await db.select().from(kycDocuments).where(and(eq(kycDocuments.blobPathname, pathname))).limit(1);
   if (!doc) return null;
-  return getBlob(pathname, { access: "private" });
+  try {
+    return await getBlob(pathname, { access: "private" });
+  } catch {
+    return null;
+  }
 }
