@@ -43,6 +43,13 @@
       "when": 1789149628491,
       "tag": "0005_ambitious_ben_parker",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789150652484,
+      "tag": "0006_dizzy_electro",
+      "breakpoints": true
     }
   ]
 }

@@ -11,6 +11,7 @@ type Overview = {
   activeAllocationsCount: number;
   activeAllocationsTotalCents: number;
   openDeskCount: number;
+  pendingKycCount: number;
   accountTypeCounts: { standard: number; ecn: number; pro: number; swapFree: number };
 };
 
@@ -47,6 +48,7 @@ export default function OverviewTab() {
           value={`${fmtCount(data.activeAllocationsCount)} · ${fmtMoney(data.activeAllocationsTotalCents / 100)}`}
         />
         <Stat label="Open Desk positions" value={fmtCount(data.openDeskCount)} />
+        <Stat label="Pending KYC reviews" value={fmtCount(data.pendingKycCount)} />
       </div>
 
       <div className="panel mt-6 p-6">

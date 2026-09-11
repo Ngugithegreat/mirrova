@@ -423,46 +423,69 @@ export default function RealWallet() {
           <div className="text-[11px] uppercase tracking-wide text-ink-3">Withdraw to M-Pesa</div>
           <p className="mt-1.5 text-sm text-ink-2">Withdraw from your available real balance ({fmtMoney(cash, 2)}).</p>
 
-          <form onSubmit={handleWithdraw} className="mt-4 grid gap-4 sm:grid-cols-[1fr_140px_auto] sm:items-end">
-            <div>
-              <label htmlFor="withdrawPhone" className="text-xs font-medium uppercase tracking-wide text-ink-3">
-                M-Pesa phone number
-              </label>
-              <input
-                id="withdrawPhone"
-                value={withdrawPhone}
-                onChange={(e) => setWithdrawPhone(e.target.value)}
-                placeholder="0712345678"
-                className="mt-2 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-ink placeholder:text-ink-3 focus:border-mint/50 focus:outline-none"
-              />
+          {real.kycStatus !== "verified" ? (
+            <div className="mt-4 rounded-xl border border-warn/30 bg-warn/5 p-5">
+              <p className="text-sm font-medium text-ink">Verify your identity to withdraw</p>
+              <p className="mt-1.5 text-sm text-ink-2">
+                {real.kycStatus === "pending"
+                  ? "Your identity verification is under review — you'll be able to withdraw once it's approved."
+                  : real.kycStatus === "rejected"
+                    ? "Your identity verification was rejected — resubmit to unlock withdrawals."
+                    : "Deposits and copying don't require this, but withdrawals do. It only takes a few minutes."}
+              </p>
+              {real.kycStatus !== "pending" && (
+                <Link
+                  href="/verify"
+                  className="mt-3 inline-block rounded-lg border border-line px-4 py-2 text-xs font-medium text-ink-2 transition-colors hover:border-mint/50 hover:text-mint"
+                >
+                  {real.kycStatus === "rejected" ? "Resubmit verification" : "Verify your identity"}
+                </Link>
+              )}
             </div>
-            <div>
-              <label htmlFor="withdrawAmount" className="text-xs font-medium uppercase tracking-wide text-ink-3">
-                Amount (USD)
-              </label>
-              <input
-                id="withdrawAmount"
-                type="number"
-                min={5}
-                step={1}
-                value={withdrawAmount}
-                onChange={(e) => setWithdrawAmount(Number(e.target.value))}
-                className="tnum mt-2 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-ink focus:border-mint/50 focus:outline-none"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={withdrawBusy || cash <= 0}
-              className="rounded-xl border border-line px-5 py-3 text-sm font-medium text-ink-2 transition-colors hover:border-mint/50 hover:text-mint disabled:opacity-50"
-            >
-              {withdrawBusy ? "Requesting…" : "Withdraw"}
-            </button>
-          </form>
-          {withdrawMsg && <p className={`mt-3 text-sm ${withdrawMsg.kind === "ok" ? "text-mint" : "text-neg"}`}>{withdrawMsg.text}</p>}
-          <p className="mt-3 text-[11px] leading-relaxed text-ink-3">
-            Withdrawals are processed manually and paid out to the M-Pesa number you provide — allow up to 1
-            business day.
-          </p>
+          ) : (
+            <>
+              <form onSubmit={handleWithdraw} className="mt-4 grid gap-4 sm:grid-cols-[1fr_140px_auto] sm:items-end">
+                <div>
+                  <label htmlFor="withdrawPhone" className="text-xs font-medium uppercase tracking-wide text-ink-3">
+                    M-Pesa phone number
+                  </label>
+                  <input
+                    id="withdrawPhone"
+                    value={withdrawPhone}
+                    onChange={(e) => setWithdrawPhone(e.target.value)}
+                    placeholder="0712345678"
+                    className="mt-2 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-ink placeholder:text-ink-3 focus:border-mint/50 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="withdrawAmount" className="text-xs font-medium uppercase tracking-wide text-ink-3">
+                    Amount (USD)
+                  </label>
+                  <input
+                    id="withdrawAmount"
+                    type="number"
+                    min={5}
+                    step={1}
+                    value={withdrawAmount}
+                    onChange={(e) => setWithdrawAmount(Number(e.target.value))}
+                    className="tnum mt-2 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-ink focus:border-mint/50 focus:outline-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={withdrawBusy || cash <= 0}
+                  className="rounded-xl border border-line px-5 py-3 text-sm font-medium text-ink-2 transition-colors hover:border-mint/50 hover:text-mint disabled:opacity-50"
+                >
+                  {withdrawBusy ? "Requesting…" : "Withdraw"}
+                </button>
+              </form>
+              {withdrawMsg && <p className={`mt-3 text-sm ${withdrawMsg.kind === "ok" ? "text-mint" : "text-neg"}`}>{withdrawMsg.text}</p>}
+              <p className="mt-3 text-[11px] leading-relaxed text-ink-3">
+                Withdrawals are processed manually and paid out to the M-Pesa number you provide — allow up to 1
+                business day.
+              </p>
+            </>
+          )}
         </div>
 
         <h2 className="font-display mt-10 text-xl font-semibold">Deposit history</h2>

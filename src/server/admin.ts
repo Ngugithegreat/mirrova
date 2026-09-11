@@ -1,5 +1,5 @@
 import { eq, and, desc, sql, or, ilike, inArray } from "drizzle-orm";
-import { users, payments, cryptoPayments, copies, realAllocations, deskPositions, withdrawals } from "@/db/schema";
+import { users, payments, cryptoPayments, copies, realAllocations, deskPositions, withdrawals, kycProfiles } from "@/db/schema";
 import type { AppDb } from "@/db/types";
 import { getUserAccountType, getTotalDeposited } from "./accountTypes";
 import { reconcileDeposit } from "./realAccount";
@@ -28,6 +28,7 @@ export async function getOverview(db: AppDb) {
     .from(realAllocations)
     .where(eq(realAllocations.active, true));
   const openDesk = await db.select({ id: deskPositions.id }).from(deskPositions).where(eq(deskPositions.active, true));
+  const pendingKyc = await db.select({ id: kycProfiles.id }).from(kycProfiles).where(eq(kycProfiles.status, "pending"));
 
   const byType = await db
     .select({ accountType: users.accountType, n: sql<number>`count(*)` })
@@ -46,6 +47,7 @@ export async function getOverview(db: AppDb) {
     activeAllocationsCount: activeAllocations.length,
     activeAllocationsTotalCents: activeAllocations.reduce((s, a) => s + a.amountCents, 0),
     openDeskCount: openDesk.length,
+    pendingKycCount: pendingKyc.length,
     accountTypeCounts,
   };
 }

@@ -19,6 +19,7 @@ import { computeCopyValueCents } from "../src/lib/copyValue";
 import { getTrader } from "../src/lib/traders";
 import { getAccountType } from "../src/lib/accountTypes";
 import { verifyAdminPassword, createAdminCookieValue, verifyAdminCookieValue, sign } from "../src/server/adminAuth";
+import { submitKyc, getKycStatus, reviewKyc } from "../src/server/kyc";
 
 let passed = 0;
 let failed = 0;
@@ -267,11 +268,83 @@ async function main() {
     afterAutoClose.cashCents === beforeAutoClose.cashCents + slPos.stakeUsdCents + (closedRow.pnlCents ?? 0)
   );
 
-  // --- withdrawals: request locks funds immediately, reject refunds them ---
+  // --- KYC: submit -> pending -> admin review; the ID number is never
+  // stored anywhere in a form that equals the raw input ---
+  const kycSignup = await signUp(db, "Kyc Tester", "kyc@example.com", "hunter22", "standard");
+  check("kyc-test signup succeeds", kycSignup.ok);
+  const [kycUser] = await db.select().from(users).where(eq(users.email, "kyc@example.com"));
+
+  const statusBeforeSubmit = await getKycStatus(db, kycUser.id);
+  check("a fresh user starts unsubmitted", statusBeforeSubmit.status === "unsubmitted");
+
+  const rawIdNumber = "A1234567";
+  const submitResult = await submitKyc(db, kycUser.id, {
+    fullName: "Kyc Tester",
+    idType: "passport",
+    idNumber: rawIdNumber,
+    dateOfBirth: "1990-01-01",
+    address: "123 Main St",
+  });
+  check("submitting a valid KYC profile succeeds", submitResult.ok);
+
+  const [kycRow] = await db.select().from(schema.kycProfiles).where(eq(schema.kycProfiles.userId, kycUser.id));
+  check("submission is recorded as pending", kycRow.status === "pending");
+  check("the masked ID number never equals the raw input", kycRow.idNumberMasked !== rawIdNumber);
+  check("the stored hash never equals the raw input", kycRow.idNumberHash !== rawIdNumber);
+  check("the masked ID number only reveals the last 4 digits", kycRow.idNumberMasked === "•••• 4567");
+
+  const resubmitWhilePending = await submitKyc(db, kycUser.id, {
+    fullName: "x",
+    idType: "passport",
+    idNumber: "999999",
+    dateOfBirth: "1990-01-01",
+    address: "x",
+  });
+  check("resubmitting while already pending is rejected", !resubmitWhilePending.ok);
+
+  const rejectDecision = await reviewKyc(db, kycUser.id, "rejected", "Blurry photo");
+  check("admin rejecting a pending submission succeeds", rejectDecision.ok);
+  const statusAfterReject = await getKycStatus(db, kycUser.id);
+  check("status becomes rejected", statusAfterReject.status === "rejected");
+  check("the rejection note is recorded", statusAfterReject.reviewNote === "Blurry photo");
+
+  const reReviewRejected = await reviewKyc(db, kycUser.id, "verified");
+  check("reviewing an already-resolved submission again is rejected", !reReviewRejected.ok);
+
+  const resubmitAfterReject = await submitKyc(db, kycUser.id, {
+    fullName: "Kyc Tester",
+    idType: "passport",
+    idNumber: rawIdNumber,
+    dateOfBirth: "1990-01-01",
+    address: "123 Main St",
+  });
+  check("resubmitting after rejection succeeds", resubmitAfterReject.ok);
+
+  const approveDecision = await reviewKyc(db, kycUser.id, "verified");
+  check("admin approving a pending submission succeeds", approveDecision.ok);
+  const statusAfterApprove = await getKycStatus(db, kycUser.id);
+  check("status becomes verified", statusAfterApprove.status === "verified");
+
+  // --- withdrawals: gated on KYC verification, then request locks funds
+  // immediately, reject refunds them ---
   const wSignup = await signUp(db, "Withdraw Tester", "withdraw@example.com", "hunter22", "standard");
   check("withdrawal-test signup succeeds", wSignup.ok);
   const [wUser] = await db.select().from(users).where(eq(users.email, "withdraw@example.com"));
   await db.update(users).set({ realCashCents: 10_000 }).where(eq(users.id, wUser.id)); // $100 available
+
+  const reqBeforeKyc = await requestWithdrawal(db, wUser.id, 3_000, "0712345678");
+  check("a withdrawal request is rejected before identity verification", !reqBeforeKyc.ok);
+
+  await submitKyc(db, wUser.id, {
+    fullName: "Withdraw Tester",
+    idType: "national_id",
+    idNumber: "B7654321",
+    dateOfBirth: "1985-05-05",
+    address: "456 Side St",
+  });
+  await reviewKyc(db, wUser.id, "verified");
+  const [afterVerify] = await db.select().from(users).where(eq(users.id, wUser.id));
+  check("verifying identity doesn't touch the real balance", afterVerify.realCashCents === 10_000);
 
   const reqTooBig = await requestWithdrawal(db, wUser.id, 20_000, "0712345678");
   check("requesting more than the available real balance is rejected", !reqTooBig.ok);

@@ -8,12 +8,14 @@ import DepositsTab from "./DepositsTab";
 import WithdrawalsTab from "./WithdrawalsTab";
 import ActivityTab from "./ActivityTab";
 import DeskTab from "./DeskTab";
+import KycTab from "./KycTab";
 
 const TABS = [
   { key: "overview", label: "Overview" },
   { key: "users", label: "Users" },
   { key: "deposits", label: "Deposits" },
   { key: "withdrawals", label: "Withdrawals" },
+  { key: "kyc", label: "KYC" },
   { key: "activity", label: "Copy activity" },
   { key: "desk", label: "Desk" },
 ] as const;
@@ -67,6 +69,7 @@ export default function AdminConsole() {
         {tab === "users" && <UsersTab />}
         {tab === "deposits" && <DepositsTab />}
         {tab === "withdrawals" && <WithdrawalsTab />}
+        {tab === "kyc" && <KycTab />}
         {tab === "activity" && <ActivityTab />}
         {tab === "desk" && <DeskTab />}
       </div>

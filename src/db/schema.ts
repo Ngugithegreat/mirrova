@@ -119,6 +119,42 @@ export const deskPositions = pgTable("desk_positions", {
   pnlCents: integer("pnl_cents"),
 });
 
+/** One KYC profile per user. The identity number is never stored raw: only
+ * a masked display value (last 4 digits) and a salted hash (for uniqueness
+ * checks) are kept — the actual number is discarded after hashing. */
+export const kycProfiles = pgTable("kyc_profiles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("unsubmitted"), // unsubmitted | pending | verified | rejected
+  fullName: text("full_name").notNull(),
+  idType: text("id_type").notNull(), // passport | national_id | drivers_license
+  idNumberMasked: text("id_number_masked").notNull(), // e.g. "•••• 1234"
+  idNumberHash: text("id_number_hash").notNull(),
+  dateOfBirth: text("date_of_birth").notNull(), // YYYY-MM-DD
+  address: text("address").notNull(),
+  submittedAt: timestamp("submitted_at", { withTimezone: true }),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  reviewNote: text("review_note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Uploaded to Vercel Blob with access:"private" — blobPathname is only
+ * ever served back out through an admin-only proxy route, never as a
+ * public URL. */
+export const kycDocuments = pgTable("kyc_documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(), // id_front | id_back | selfie
+  blobPathname: text("blob_pathname").notNull(),
+  contentType: text("content_type").notNull(),
+  uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** A withdrawal request debits realCashCents immediately (funds are locked
  * the moment a request is made, same "commit first" pattern as
  * realAllocations) — paid out manually since there's no automated payout

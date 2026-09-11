@@ -22,6 +22,8 @@ export type RealWithdrawal = {
   note: string | null;
 };
 
+export type KycStatus = "unsubmitted" | "pending" | "verified" | "rejected";
+
 export type RealAccountState = {
   ready: boolean;
   realCashCents: number;
@@ -31,6 +33,7 @@ export type RealAccountState = {
   accountType: RealAccountType | null;
   totalDepositedUsdCents: number;
   eligibleAccountTypes: string[];
+  kycStatus: KycStatus;
 };
 
 const EMPTY: RealAccountState = {
@@ -42,6 +45,7 @@ const EMPTY: RealAccountState = {
   accountType: null,
   totalDepositedUsdCents: 0,
   eligibleAccountTypes: [],
+  kycStatus: "unsubmitted",
 };
 
 let state: RealAccountState = EMPTY;
@@ -90,6 +94,7 @@ export async function refreshRealAccount() {
       accountType: data.accountType ?? null,
       totalDepositedUsdCents: data.totalDepositedUsdCents ?? 0,
       eligibleAccountTypes: data.eligibleAccountTypes ?? [],
+      kycStatus: data.kycStatus ?? "unsubmitted",
     });
   } catch {
     setState({ ...EMPTY, ready: true });

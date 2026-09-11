@@ -1,5 +1,5 @@
 import { eq, desc } from "drizzle-orm";
-import { users, withdrawals, activity } from "@/db/schema";
+import { users, withdrawals, kycProfiles, activity } from "@/db/schema";
 import type { AppDb } from "@/db/types";
 import { normalizeKenyanPhone } from "./mpesa";
 
@@ -25,6 +25,9 @@ export async function requestWithdrawal(db: AppDb, userId: string, amountUsdCent
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user) return fail("Not signed in.");
   if (amountUsdCents > user.realCashCents) return fail("Amount exceeds your available real balance.");
+
+  const [kyc] = await db.select({ status: kycProfiles.status }).from(kycProfiles).where(eq(kycProfiles.userId, userId)).limit(1);
+  if (kyc?.status !== "verified") return fail("Verify your identity before withdrawing.");
 
   await db.update(users).set({ realCashCents: user.realCashCents - amountUsdCents }).where(eq(users.id, userId));
   await db.insert(withdrawals).values({ userId, amountUsdCents, phone });
