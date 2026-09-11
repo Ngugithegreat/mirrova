@@ -4,6 +4,7 @@ import { fmtPct, fmtCount, fmtCompact } from "@/lib/format";
 import TraderAvatar from "./TraderAvatar";
 import RiskMeter from "./RiskMeter";
 import Sparkline from "@/components/charts/Sparkline";
+import LiveSignalBadge from "@/components/traders/LiveSignalBadge";
 
 export default function TraderCard({ trader }: { trader: Trader }) {
   const stats = traderStats(trader);
@@ -40,7 +41,11 @@ export default function TraderCard({ trader }: { trader: Trader }) {
         </div>
       </div>
 
-      <div className="mt-5 flex items-end justify-between gap-4 border-t border-line-soft pt-4">
+      <div className="mt-3">
+        <LiveSignalBadge trader={trader} />
+      </div>
+
+      <div className="mt-4 flex items-end justify-between gap-4 border-t border-line-soft pt-4">
         <div>
           <div className="eyebrow-muted">12-month return</div>
           <div className={`fig mt-1 text-[2rem] font-semibold leading-none ${stats.return12m >= 0 ? "text-pos" : "text-neg"}`}>

@@ -10,6 +10,7 @@ import RiskMeter from "@/components/ui/RiskMeter";
 import Sparkline from "@/components/charts/Sparkline";
 import { ButtonLink } from "@/components/ui/Button";
 import CountUp from "@/components/motion/CountUp";
+import LiveSignalBadge from "@/components/traders/LiveSignalBadge";
 
 function timeAgo(iso: string) {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -130,6 +131,7 @@ export default function Portfolio() {
                     <div className="font-medium text-ink">{t.name}</div>
                     <div className="mt-0.5 text-xs text-ink-3">{t.strategy}</div>
                     <div className="mt-1.5"><RiskMeter score={t.riskScore} showLabel={false} /></div>
+                    <div className="mt-1.5"><LiveSignalBadge trader={t} /></div>
                   </div>
                 </Link>
                 <Sparkline data={eq} id={`dash-${c.slug}`} width={120} height={40} positive={s.return12m >= 0} />

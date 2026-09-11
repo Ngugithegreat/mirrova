@@ -9,6 +9,8 @@ import EquityChart from "@/components/charts/EquityChart";
 import MonthlyHeatmap from "@/components/charts/MonthlyHeatmap";
 import AllocationBars from "@/components/charts/AllocationBars";
 import CopyPanel from "@/components/traders/CopyPanel";
+import LiveSignalPanel from "@/components/traders/LiveSignalPanel";
+import LiveSignalBadge from "@/components/traders/LiveSignalBadge";
 import Auroras from "@/components/motion/Auroras";
 import TradeNetwork from "@/components/motion/TradeNetwork";
 import Reveal from "@/components/ui/Reveal";
@@ -83,8 +85,9 @@ export default async function TraderPage({ params }: { params: Promise<{ slug: s
                   <p className="mt-2 text-ink-2">
                     {t.handle} · {t.flag} {t.country} · {t.strategy} · On Asport Traders since {t.joined}
                   </p>
-                  <div className="mt-3">
+                  <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
                     <RiskMeter score={t.riskScore} />
+                    <LiveSignalBadge trader={t} size="md" />
                   </div>
                 </div>
               </div>
@@ -188,6 +191,7 @@ export default async function TraderPage({ params }: { params: Promise<{ slug: s
           </div>
 
           <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+            <LiveSignalPanel trader={t} />
             <CopyPanel slug={t.slug} name={t.name} perfFee={t.perfFee} minCopy={t.minCopy} />
             <div className="panel p-6">
               <h3 className="font-display text-base font-semibold">Current allocation</h3>

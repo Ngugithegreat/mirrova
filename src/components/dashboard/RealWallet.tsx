@@ -8,6 +8,7 @@ import { TRADERS, getTrader } from "@/lib/traders";
 import { fmtMoney } from "@/lib/format";
 import { ButtonLink } from "@/components/ui/Button";
 import TraderAvatar from "@/components/ui/TraderAvatar";
+import LiveSignalBadge from "@/components/traders/LiveSignalBadge";
 
 function timeAgo(iso: string) {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -193,6 +194,7 @@ export default function RealWallet() {
                   <div>
                     <div className="font-medium text-ink">{allocTrader.name}</div>
                     <div className="text-xs text-ink-3">{allocTrader.strategy}</div>
+                    <div className="mt-1.5"><LiveSignalBadge trader={allocTrader} /></div>
                   </div>
                 </Link>
                 <div className="mt-4 border-t border-line-soft pt-4">
