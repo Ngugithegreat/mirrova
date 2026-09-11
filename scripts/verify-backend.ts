@@ -17,6 +17,7 @@ import { eq, and } from "drizzle-orm";
 import { computeCopyValueCents } from "../src/lib/copyValue";
 import { getTrader } from "../src/lib/traders";
 import { TIERS } from "../src/lib/tiers";
+import { verifyAdminPassword, createAdminCookieValue, verifyAdminCookieValue, sign } from "../src/server/adminAuth";
 
 let passed = 0;
 let failed = 0;
@@ -232,6 +233,32 @@ async function main() {
     "auto-close credited stake + P&L back to practice cash",
     afterAutoClose.cashCents === beforeAutoClose.cashCents + slPos.stakeUsdCents + (closedRow.pnlCents ?? 0)
   );
+
+  // --- admin auth: stateless HMAC-signed cookie, no DB involved ---
+  const priorAdminPassword = process.env.ADMIN_PASSWORD;
+  delete process.env.ADMIN_PASSWORD;
+  const unconfigured = verifyAdminPassword("anything");
+  check("admin login fails closed when ADMIN_PASSWORD is unset", !unconfigured.ok);
+
+  process.env.ADMIN_PASSWORD = "correct-horse-battery-staple";
+  check("the correct admin password is accepted", verifyAdminPassword("correct-horse-battery-staple").ok);
+  check("the wrong admin password is rejected", !verifyAdminPassword("wrong-password").ok);
+
+  const freshCookie = createAdminCookieValue();
+  check("a freshly created admin cookie verifies", verifyAdminCookieValue(freshCookie));
+  check("no cookie value is rejected", !verifyAdminCookieValue(undefined));
+  check("a garbage cookie value is rejected", !verifyAdminCookieValue("not-a-real-cookie"));
+
+  const [ts, sig] = freshCookie.split(".");
+  const tamperedSig = sig.slice(0, -1) + (sig.endsWith("0") ? "1" : "0");
+  check("a tampered signature is rejected", !verifyAdminCookieValue(`${ts}.${tamperedSig}`));
+
+  const expiredPayload = String(Date.now() - 1000);
+  const expiredCookie = `${expiredPayload}.${sign(expiredPayload)}`;
+  check("a correctly-signed but expired cookie is rejected", !verifyAdminCookieValue(expiredCookie));
+
+  if (priorAdminPassword === undefined) delete process.env.ADMIN_PASSWORD;
+  else process.env.ADMIN_PASSWORD = priorAdminPassword;
 
   // --- logout ---
   await logOut(db, s1.token);
