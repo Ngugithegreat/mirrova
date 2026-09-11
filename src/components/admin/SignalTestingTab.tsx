@@ -59,6 +59,7 @@ export default function SignalTestingTab() {
         </p>
         <input
           type="range"
+          aria-label="System win rate percentage"
           min={0}
           max={100}
           step={1}

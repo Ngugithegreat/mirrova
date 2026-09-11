@@ -124,8 +124,9 @@ export default function Desk() {
       </div>
 
       <div className="mt-6 grid gap-4 xl:grid-cols-[260px_1fr_300px]">
-        {/* Watchlist */}
-        <div className="panel max-h-[600px] overflow-y-auto p-2">
+        {/* Watchlist — comes after the chart/ticket on mobile so the most
+            important controls aren't buried below a 12-row list */}
+        <div className="panel order-3 max-h-[280px] overflow-y-auto p-2 xl:order-none xl:max-h-[600px]">
           {watchlist.map((i) => {
             const unlocked = isUnlocked(i.sym);
             return (

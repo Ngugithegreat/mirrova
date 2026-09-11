@@ -109,7 +109,7 @@ function Sidebar({ pathname, mobile, onNavigate }: { pathname: string; mobile?: 
         <span className="font-display text-[1.05rem] font-semibold tracking-tight text-ink">asport traders</span>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3" aria-label="Account">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3" aria-label="Account">
         {NAV.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
           const badge = item.href === "/traders" && copyCount > 0 ? copyCount : null;
@@ -205,6 +205,13 @@ function TopBar({ pathname }: { pathname: string }) {
             <path d="M4 8h16M4 16h16" />
           </svg>
         </button>
+
+        <div className="flex flex-1 items-center justify-end gap-2 lg:hidden">
+          <div className="text-right">
+            <div className="text-[9px] uppercase tracking-wide text-ink-3">{isLive ? "Real balance" : "Practice balance"}</div>
+            <div className="tnum text-[13px] font-semibold text-ink">{fmtMoney(stats[0].value / 100, 2)}</div>
+          </div>
+        </div>
 
         <div className="hidden flex-1 items-center gap-6 lg:flex">
           {stats.map((s) => (

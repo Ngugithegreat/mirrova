@@ -6,6 +6,7 @@ import Sparkline from "@/components/charts/Sparkline";
 import LiveChart from "@/components/motion/LiveChart";
 import TradeNetwork from "@/components/motion/TradeNetwork";
 import PriceTicker from "@/components/motion/PriceTicker";
+import RotatingWord from "@/components/motion/RotatingWord";
 import ActivityFeed from "@/components/motion/ActivityFeed";
 import CountUp from "@/components/motion/CountUp";
 import { PLATFORM_STATS, equitySeries, traderStats, getTrader } from "@/lib/traders";
@@ -41,7 +42,7 @@ export default function Hero() {
           <h1 className="font-display mt-6 text-[2.75rem] font-semibold leading-[1.05] tracking-tight sm:text-6xl lg:text-[4.3rem]">
             Trade like the top&nbsp;1%.
             <br />
-            <span className="text-aurora">Automatically.</span>
+            <RotatingWord />
           </h1>
 
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-2">
