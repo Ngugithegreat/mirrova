@@ -98,7 +98,7 @@ export default function AppNavbar() {
         <div className="flex items-center gap-3 lg:hidden">
           {signedIn && (
             <>
-              <div className="text-right">
+              <div className="hidden text-right sm:block">
                 <div className="text-[9px] uppercase tracking-wide text-ink-3">Balance</div>
                 <div className="tnum text-xs font-semibold text-ink">{fmtMoney(state.cashCents / 100, 2)}</div>
               </div>
