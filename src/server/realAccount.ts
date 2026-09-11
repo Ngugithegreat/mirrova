@@ -2,10 +2,10 @@ import { eq, and, desc } from "drizzle-orm";
 import { users, payments, realAllocations, activity } from "@/db/schema";
 import type { AppDb } from "@/db/types";
 import { getTrader } from "@/lib/traders";
-import { nextTier } from "@/lib/tiers";
+import { ACCOUNT_TYPES, isAccountTypeId, type AccountTypeId } from "@/lib/accountTypes";
 import { kesToUsdCents } from "./fx";
 import { stkPush, stkQuery, normalizeKenyanPhone } from "./mpesa";
-import { getUserTier } from "./tiers";
+import { getUserAccountType, getTotalDeposited, setUserAccountType } from "./accountTypes";
 
 type Result<T> = { ok: false; error: string } | ({ ok: true } & T);
 function fail(error: string): { ok: false; error: string } {
@@ -120,16 +120,30 @@ export async function getRealAccount(db: AppDb, userId: string) {
     .where(eq(payments.userId, userId))
     .orderBy(desc(payments.createdAt))
     .limit(10);
-  const { tier, totalDepositedUsdCents } = await getUserTier(db, userId);
-  const next = nextTier(tier.id);
+  const accountType = await getUserAccountType(db, userId);
+  const totalDepositedUsdCents = await getTotalDeposited(db, userId);
+  const eligibleAccountTypes = ACCOUNT_TYPES.filter((t) => totalDepositedUsdCents >= t.minDepositUsdCents).map((t) => t.id);
   return {
     realCashCents: user?.realCashCents ?? 0,
     allocation: allocation ?? null,
     payments: recentPayments,
-    tier,
+    accountType,
     totalDepositedUsdCents,
-    nextTier: next,
+    eligibleAccountTypes,
   };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export async function switchAccountType(db: AppDb, userId: string, accountTypeId: string): Promise<Result<{}>> {
+  if (!isAccountTypeId(accountTypeId)) return fail("Unknown account type.");
+  const target = ACCOUNT_TYPES.find((t) => t.id === accountTypeId)!;
+  const totalDepositedUsdCents = await getTotalDeposited(db, userId);
+  if (totalDepositedUsdCents < target.minDepositUsdCents) {
+    return fail(`Deposit at least $${(target.minDepositUsdCents / 100).toLocaleString()} lifetime to switch to ${target.name}.`);
+  }
+  await setUserAccountType(db, userId, accountTypeId as AccountTypeId);
+  await db.insert(activity).values({ userId, text: `Switched to the ${target.name} account type` });
+  return { ok: true };
 }
 
 /** All-or-nothing by design: the entire available real balance moves to one
@@ -142,6 +156,14 @@ export async function allocateReal(db: AppDb, userId: string, traderSlug: string
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user) return fail("Not signed in.");
   if (user.realCashCents <= 0) return fail("No available real balance to allocate — deposit first.");
+
+  const accountType = await getUserAccountType(db, userId);
+  const totalDepositedUsdCents = await getTotalDeposited(db, userId);
+  if (totalDepositedUsdCents < accountType.minDepositUsdCents) {
+    return fail(
+      `Deposit at least $${(accountType.minDepositUsdCents / 100).toLocaleString()} lifetime to activate real copying on your ${accountType.name} account.`
+    );
+  }
 
   const [existing] = await db
     .select({ id: realAllocations.id })

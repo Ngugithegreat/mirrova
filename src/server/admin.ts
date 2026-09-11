@@ -1,9 +1,9 @@
 import { eq, and, desc, sql, or, ilike, inArray } from "drizzle-orm";
 import { users, payments, copies, realAllocations, deskPositions } from "@/db/schema";
 import type { AppDb } from "@/db/types";
-import { getUserTier } from "./tiers";
+import { getUserAccountType, getTotalDeposited } from "./accountTypes";
 import { reconcileDeposit } from "./realAccount";
-import { tierForDeposits, type TierId } from "@/lib/tiers";
+import type { AccountTypeId } from "@/lib/accountTypes";
 import { getTrader } from "@/lib/traders";
 
 const USER_LIST_LIMIT = 200;
@@ -23,19 +23,14 @@ export async function getOverview(db: AppDb) {
     .where(eq(realAllocations.active, true));
   const openDesk = await db.select({ id: deskPositions.id }).from(deskPositions).where(eq(deskPositions.active, true));
 
-  const perUserDeposits = await db
-    .select({ userId: payments.userId, total: sql<number>`coalesce(sum(${payments.creditedUsdCents}),0)` })
-    .from(payments)
-    .where(eq(payments.status, "completed"))
-    .groupBy(payments.userId);
-
-  const tierCounts: Record<TierId, number> = { core: 0, momentum: 0, apex: 0 };
-  const depositedUserIds = new Set<string>();
-  for (const row of perUserDeposits) {
-    depositedUserIds.add(row.userId);
-    tierCounts[tierForDeposits(Number(row.total)).id]++;
+  const byType = await db
+    .select({ accountType: users.accountType, n: sql<number>`count(*)` })
+    .from(users)
+    .groupBy(users.accountType);
+  const accountTypeCounts: Record<AccountTypeId, number> = { standard: 0, ecn: 0, pro: 0, swapFree: 0 };
+  for (const row of byType) {
+    if (row.accountType in accountTypeCounts) accountTypeCounts[row.accountType as AccountTypeId] = Number(row.n);
   }
-  tierCounts.core += Number(userCount?.n ?? 0) - depositedUserIds.size;
 
   return {
     totalUsers: Number(userCount?.n ?? 0),
@@ -45,7 +40,7 @@ export async function getOverview(db: AppDb) {
     activeAllocationsCount: activeAllocations.length,
     activeAllocationsTotalCents: activeAllocations.reduce((s, a) => s + a.amountCents, 0),
     openDeskCount: openDesk.length,
-    tierCounts,
+    accountTypeCounts,
   };
 }
 
@@ -66,7 +61,8 @@ export async function getUsersList(db: AppDb, q?: string) {
 
   const out = [];
   for (const u of rows) {
-    const { tier, totalDepositedUsdCents } = await getUserTier(db, u.id);
+    const accountType = await getUserAccountType(db, u.id);
+    const totalDepositedUsdCents = await getTotalDeposited(db, u.id);
     const [{ n: activeCopyCount }] = await db
       .select({ n: sql<number>`count(*)` })
       .from(copies)
@@ -83,7 +79,7 @@ export async function getUsersList(db: AppDb, q?: string) {
 
     out.push({
       ...u,
-      tier: tier.id,
+      accountType: accountType.id,
       totalDepositedUsdCents,
       activeCopyCount: Number(activeCopyCount ?? 0),
       realAllocation: activeAlloc ?? null,

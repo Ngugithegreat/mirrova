@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAccountState } from "@/lib/accountClient";
 import { realAccount, useRealAccountState } from "@/lib/realAccountClient";
 import { TRADERS, getTrader } from "@/lib/traders";
+import { ACCOUNT_TYPES } from "@/lib/accountTypes";
 import { fmtMoney } from "@/lib/format";
 import { ButtonLink } from "@/components/ui/Button";
 import TraderAvatar from "@/components/ui/TraderAvatar";
@@ -36,6 +37,9 @@ export default function RealWallet() {
   const [selectedSlug, setSelectedSlug] = useState("");
   const [allocBusy, setAllocBusy] = useState(false);
   const [allocError, setAllocError] = useState<string | null>(null);
+
+  const [switchBusy, setSwitchBusy] = useState<string | null>(null);
+  const [switchError, setSwitchError] = useState<string | null>(null);
 
   if (!account.ready || !real.ready) {
     return <div className="mx-auto max-w-4xl px-5 py-24 text-center text-ink-3">Loading wallet…</div>;
@@ -101,6 +105,18 @@ export default function RealWallet() {
     }
   }
 
+  async function handleSwitchType(id: string) {
+    setSwitchError(null);
+    setSwitchBusy(id);
+    try {
+      await realAccount.switchType(id);
+    } catch (err) {
+      setSwitchError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setSwitchBusy(null);
+    }
+  }
+
   const cash = real.realCashCents / 100;
   const allocTrader = real.allocation ? getTrader(real.allocation.slug) : null;
 
@@ -121,38 +137,43 @@ export default function RealWallet() {
           not available in every jurisdiction.
         </p>
 
-        {real.tier && (
+        {real.accountType && (
           <div className="panel mt-6 p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2.5">
                 <span className="rounded-full border border-mint/30 bg-mint/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-mint">
-                  {real.tier.name} tier
+                  {real.accountType.name}
                 </span>
                 <span className="text-sm text-ink-2">
-                  Unlocked by ${(real.totalDepositedUsdCents / 100).toLocaleString()} in lifetime deposits
+                  1:{real.accountType.maxLeverage} · ${(real.totalDepositedUsdCents / 100).toLocaleString()} deposited lifetime
                 </span>
               </div>
-              <Link href="/pricing#tiers" className="text-xs font-medium text-mint hover:underline">
-                Compare tiers →
+              <Link href="/pricing#account-types" className="text-xs font-medium text-mint hover:underline">
+                Compare account types →
               </Link>
             </div>
-            {real.nextTier && (
-              <div className="mt-4">
-                <div className="h-1.5 w-full rounded-full bg-line-soft">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-violet to-mint"
-                    style={{
-                      width: `${Math.min(100, (real.totalDepositedUsdCents / real.nextTier.minDepositUsdCents) * 100)}%`,
-                    }}
-                  />
-                </div>
-                <p className="mt-2 text-xs text-ink-3">
-                  Deposit ${((real.nextTier.minDepositUsdCents - real.totalDepositedUsdCents) / 100).toLocaleString()}{" "}
-                  more to unlock <span className="text-ink-2">{real.nextTier.name}</span> — more concurrent practice
-                  copies, a bigger performance-fee discount, and more instruments on the Desk.
-                </p>
-              </div>
-            )}
+
+            <div className="mt-4 flex flex-wrap gap-2 border-t border-line-soft pt-4">
+              {ACCOUNT_TYPES.filter((t) => t.id !== real.accountType!.id).map((t) => {
+                const eligible = real.eligibleAccountTypes.includes(t.id);
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => eligible && handleSwitchType(t.id)}
+                    disabled={!eligible || switchBusy === t.id}
+                    title={eligible ? undefined : `Deposit $${(t.minDepositUsdCents / 100).toLocaleString()} lifetime to unlock`}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                      eligible
+                        ? "border-line text-ink-2 hover:border-mint/50 hover:text-mint"
+                        : "cursor-not-allowed border-line-soft text-ink-3 opacity-60"
+                    }`}
+                  >
+                    {switchBusy === t.id ? "Switching…" : `Switch to ${t.name}`}
+                  </button>
+                );
+              })}
+            </div>
+            {switchError && <p className="mt-3 text-xs text-neg">{switchError}</p>}
           </div>
         )}
 

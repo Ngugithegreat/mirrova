@@ -4,9 +4,9 @@ import type { AppDb } from "@/db/types";
 import { hashPassword, verifyPassword, newSessionToken, hashToken } from "./auth";
 import { computeCopyValueCents } from "@/lib/copyValue";
 import { getTrader } from "@/lib/traders";
-import { getUserTier } from "./tiers";
+import { getUserAccountType } from "./accountTypes";
+import { getAccountType, type AccountTypeId } from "@/lib/accountTypes";
 
-export const START_CASH_CENTS = 100_000 * 100; // $100,000 practice balance
 const SESSION_DAYS = 30;
 
 type Result<T> = { ok: false; error: string } | ({ ok: true } & T);
@@ -25,7 +25,8 @@ export async function signUp(
   db: AppDb,
   name: string,
   email: string,
-  password: string
+  password: string,
+  accountTypeId: AccountTypeId = "standard"
 ): Promise<Result<{ token: string }>> {
   if (password.length < 8) return fail("Password must be at least 8 characters.");
 
@@ -33,19 +34,21 @@ export async function signUp(
   const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, normalizedEmail)).limit(1);
   if (existing) return fail("An account with this email already exists.");
 
+  const type = getAccountType(accountTypeId);
   const [user] = await db
     .insert(users)
     .values({
       name: name.trim(),
       email: normalizedEmail,
       passwordHash: hashPassword(password),
-      cashCents: START_CASH_CENTS,
+      cashCents: type.demoCreditCents,
+      accountType: type.id,
     })
     .returning();
 
   await db.insert(activity).values({
     userId: user.id,
-    text: `Account created — $${(START_CASH_CENTS / 100).toLocaleString()} practice balance funded`,
+    text: `${type.name} account created — $${(type.demoCreditCents / 100).toLocaleString()} practice balance funded`,
   });
 
   const token = await createSession(db, user.id);
@@ -88,8 +91,8 @@ export async function getPortfolio(db: AppDb, userId: string) {
     .where(eq(activity.userId, userId))
     .orderBy(desc(activity.createdAt))
     .limit(20);
-  const { tier } = await getUserTier(db, userId);
-  return { copies: userCopies, activity: recentActivity, tier };
+  const accountType = await getUserAccountType(db, userId);
+  return { copies: userCopies, activity: recentActivity, accountType };
 }
 
 export async function startCopy(
@@ -118,9 +121,9 @@ export async function startCopy(
     .select({ id: copies.id })
     .from(copies)
     .where(and(eq(copies.userId, userId), eq(copies.active, true)));
-  const { tier } = await getUserTier(db, userId);
-  if (activeCopies.length >= tier.maxConcurrentCopies) {
-    return fail(`Your ${tier.name} tier allows up to ${tier.maxConcurrentCopies} concurrent copies — stop one first, or reach the next tier by depositing more into your real wallet.`);
+  const accountType = await getUserAccountType(db, userId);
+  if (activeCopies.length >= accountType.maxConcurrentCopies) {
+    return fail(`Your ${accountType.name} account allows up to ${accountType.maxConcurrentCopies} concurrent copies — stop one first, or switch to an account type with a higher limit.`);
   }
 
   await db.insert(copies).values({ userId, traderSlug, amountCents, stopLossPct });
@@ -153,12 +156,7 @@ export async function stopCopy(db: AppDb, userId: string, traderSlug: string): P
 
   const trader = getTrader(copy.traderSlug);
   const profitCents = Math.max(0, grossValueCents - copy.amountCents);
-  let feeCents = 0;
-  if (profitCents > 0 && trader) {
-    const { tier } = await getUserTier(db, userId);
-    const feePct = Math.max(0, trader.perfFee - tier.feeDiscountPts);
-    feeCents = Math.round((profitCents * feePct) / 100);
-  }
+  const feeCents = profitCents > 0 && trader ? Math.round((profitCents * trader.perfFee) / 100) : 0;
   const valueCents = grossValueCents - feeCents;
 
   await db.update(copies).set({ active: false, stoppedAt: new Date() }).where(eq(copies.id, copy.id));

@@ -9,14 +9,14 @@ import { drizzle } from "drizzle-orm/pglite";
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import * as schema from "../src/db/schema";
-import { signUp, logIn, logOut, getUserByToken, startCopy, stopCopy, getPortfolio, START_CASH_CENTS } from "../src/server/account";
-import { getUserTier } from "../src/server/tiers";
+import { signUp, logIn, logOut, getUserByToken, startCopy, stopCopy, getPortfolio } from "../src/server/account";
+import { allocateReal, switchAccountType } from "../src/server/realAccount";
 import { openPosition, listPositions, closePosition } from "../src/server/desk";
 import { users, payments, deskPositions } from "../src/db/schema";
 import { eq, and } from "drizzle-orm";
 import { computeCopyValueCents } from "../src/lib/copyValue";
 import { getTrader } from "../src/lib/traders";
-import { TIERS } from "../src/lib/tiers";
+import { getAccountType } from "../src/lib/accountTypes";
 import { verifyAdminPassword, createAdminCookieValue, verifyAdminCookieValue, sign } from "../src/server/adminAuth";
 
 let passed = 0;
@@ -45,13 +45,16 @@ async function main() {
     }
   }
 
+  const standardDemoCredit = getAccountType("standard").demoCreditCents;
+
   // --- signup ---
   const s1 = await signUp(db, "Alex Investor", "alex@example.com", "hunter22");
   check("signup succeeds", s1.ok && !!s1.token);
 
   const [alex] = await db.select().from(users).where(eq(users.email, "alex@example.com"));
-  check("signup funds $100,000 practice balance", alex.cashCents === START_CASH_CENTS);
-  check("signup funds exactly 10,000,000 cents", START_CASH_CENTS === 10_000_000);
+  check("default signup (Standard) funds $10,000 practice balance", alex.cashCents === standardDemoCredit);
+  check("Standard's demo credit is exactly 1,000,000 cents", standardDemoCredit === 1_000_000);
+  check("default signup is stored as the Standard account type", alex.accountType === "standard");
 
   const s2 = await signUp(db, "Someone Else", "alex@example.com", "differentpw1");
   check("duplicate email rejected", !s2.ok);
@@ -82,7 +85,7 @@ async function main() {
   check("start copy succeeds", c1.ok);
 
   const [afterCopy] = await db.select().from(users).where(eq(users.id, alex.id));
-  check("starting a copy deducts cash", afterCopy.cashCents === START_CASH_CENTS - 100_000);
+  check("starting a copy deducts cash", afterCopy.cashCents === standardDemoCredit - 100_000);
 
   const c2 = await startCopy(db, alex.id, "isabella-rossi", 100_000, 20, 10_000);
   check("copying the same trader twice is rejected", !c2.ok);
@@ -101,7 +104,7 @@ async function main() {
   check("stop copy succeeds", stopResult.ok);
 
   const [afterStop] = await db.select().from(users).where(eq(users.id, alex.id));
-  const expectedAfterStop = START_CASH_CENTS - 100_000 + (stopResult.ok ? stopResult.valueCents : 0);
+  const expectedAfterStop = standardDemoCredit - 100_000 + (stopResult.ok ? stopResult.valueCents : 0);
   check("stopping a copy returns its value to cash", afterStop.cashCents === expectedAfterStop);
 
   const portfolio2 = await getPortfolio(db, alex.id);
@@ -110,52 +113,34 @@ async function main() {
   const stopAgain = await stopCopy(db, alex.id, "isabella-rossi");
   check("stopping an already-stopped copy is rejected", !stopAgain.ok);
 
-  // --- tiers: computed live from lifetime completed deposits ---
-  const tierSignup = await signUp(db, "Tier Tester", "tiers@example.com", "hunter22");
-  check("tier-test signup succeeds", tierSignup.ok);
-  const [freshTierUser] = await db.select().from(users).where(eq(users.email, "tiers@example.com"));
+  // --- account types: chosen at signup, stored, not computed from deposits ---
+  const typeSignup = await signUp(db, "Type Tester", "types@example.com", "hunter22", "standard");
+  check("account-type-test signup succeeds", typeSignup.ok);
+  const [typeUser] = await db.select().from(users).where(eq(users.email, "types@example.com"));
+  check("a Standard signup gets exactly Standard's demo credit", typeUser.cashCents === standardDemoCredit);
+  check("the chosen account type is stored on the user row", typeUser.accountType === "standard");
 
-  const t0 = await getUserTier(db, freshTierUser.id);
-  check("a fresh user with $0 deposits is Core tier", t0.tier.id === "core");
-  check("Core tier allows exactly 3 concurrent copies", t0.tier.maxConcurrentCopies === 3);
+  // --- account types: concurrent-copy limit follows the chosen type ---
+  const tc1 = await startCopy(db, typeUser.id, "elena-vasquez", 10_000, 20, 100);
+  const tc2 = await startCopy(db, typeUser.id, "marcus-oduya", 10_000, 20, 100);
+  const tc3 = await startCopy(db, typeUser.id, "yuki-tanaka", 10_000, 20, 100);
+  const tc4 = await startCopy(db, typeUser.id, "sofia-lindqvist", 10_000, 20, 100);
+  const tc5 = await startCopy(db, typeUser.id, "dmitri-petrov", 10_000, 20, 100);
+  check("copies 1-5 succeed within Standard's limit of 5", [tc1, tc2, tc3, tc4, tc5].every((r) => r.ok));
+  const tc6 = await startCopy(db, typeUser.id, "amara-nkosi", 10_000, 20, 100);
+  check("a 6th concurrent copy is rejected past Standard's limit of 5", !tc6.ok);
 
-  await db.insert(payments).values({
-    userId: freshTierUser.id,
-    status: "completed",
-    kesCents: 3_900_000,
-    creditedUsdCents: 30_000, // $300
-    phone: "0712345678",
-    checkoutRequestId: "tier-test-checkout-1",
-  });
-  const t1 = await getUserTier(db, freshTierUser.id);
-  check("$300 in completed deposits reaches Momentum tier", t1.tier.id === "momentum");
-  check("a pending payment does not count toward tier", true); // covered structurally: query filters status = 'completed'
-
-  // --- tiers: concurrent-copy limit is enforced server-side ---
-  const tc1 = await startCopy(db, freshTierUser.id, "elena-vasquez", 10_000, 20, 100);
-  const tc2 = await startCopy(db, freshTierUser.id, "marcus-oduya", 10_000, 20, 100);
-  const tc3 = await startCopy(db, freshTierUser.id, "yuki-tanaka", 10_000, 20, 100);
-  check("copies 1-3 succeed within a tier's limit", tc1.ok && tc2.ok && tc3.ok);
-
-  // freshTierUser is Momentum (limit 6), so a 4th-6th should still succeed and only the 7th should fail
-  const tc4 = await startCopy(db, freshTierUser.id, "sofia-lindqvist", 10_000, 20, 100);
-  const tc5 = await startCopy(db, freshTierUser.id, "dmitri-petrov", 10_000, 20, 100);
-  const tc6 = await startCopy(db, freshTierUser.id, "amara-nkosi", 10_000, 20, 100);
-  check("copies 4-6 succeed for a Momentum-tier user", tc4.ok && tc5.ok && tc6.ok);
-  const tc7 = await startCopy(db, freshTierUser.id, "lucas-meyer", 10_000, 20, 100);
-  check("a 7th concurrent copy is rejected past the Momentum limit of 6", !tc7.ok);
-
-  // --- tiers: performance-fee discount is deducted correctly on a profitable stop ---
+  // --- account types: performance fee is per-trader only, no type-based discount ---
   const trader = getTrader("isabella-rossi")!;
   const backdated = new Date(Date.now() - 400 * 86_400_000);
   await db.insert(schema.copies).values({
-    userId: freshTierUser.id,
+    userId: typeUser.id,
     traderSlug: "isabella-rossi",
     amountCents: 100_000,
     stopLossPct: 90,
     startedAt: backdated,
   });
-  const feeStop = await stopCopy(db, freshTierUser.id, "isabella-rossi");
+  const feeStop = await stopCopy(db, typeUser.id, "isabella-rossi");
   check("stopping the long-running copy succeeds", feeStop.ok);
   if (feeStop.ok) {
     const grossValueCents = computeCopyValueCents({
@@ -164,35 +149,82 @@ async function main() {
       stopLossPct: 90,
       startedAt: backdated,
     });
-    const momentum = TIERS.find((t) => t.id === "momentum")!;
     const profitCents = Math.max(0, grossValueCents - 100_000);
-    const feePct = Math.max(0, trader.perfFee - momentum.feeDiscountPts);
-    const expectedFee = Math.round((profitCents * feePct) / 100);
-    check("performance fee matches trader.perfFee minus the tier discount", feeStop.feeCents === expectedFee);
+    const expectedFee = Math.round((profitCents * trader.perfFee) / 100);
+    check("performance fee equals trader.perfFee with no account-type discount", feeStop.feeCents === expectedFee);
     check("net value returned equals gross settlement minus the fee", feeStop.valueCents === grossValueCents - expectedFee);
     check("no fee is ever charged on a loss", profitCents > 0 || feeStop.feeCents === 0);
   }
 
-  // --- the Desk: practice-only self-directed positions ---
-  const deskSignup = await signUp(db, "Desk Tester", "desk@example.com", "hunter22");
+  // --- account types: the minimum deposit gates real allocation ---
+  const allocTooEarly = await allocateReal(db, typeUser.id, "isabella-rossi");
+  check("allocating with $0 real balance is rejected", !allocTooEarly.ok);
+
+  // Simulate a completed $20 deposit directly (below Standard's $50 minimum) —
+  // completeDeposit() is bypassed here, so realCashCents is bumped by hand too.
+  await db.insert(payments).values({
+    userId: typeUser.id,
+    status: "completed",
+    kesCents: 260_000,
+    creditedUsdCents: 2_000,
+    phone: "0712345678",
+    checkoutRequestId: "type-test-deposit-1",
+  });
+  await db.update(users).set({ realCashCents: 2_000 }).where(eq(users.id, typeUser.id));
+  const allocBelowMin = await allocateReal(db, typeUser.id, "isabella-rossi");
+  check("allocating below the account type's minimum deposit is rejected", !allocBelowMin.ok);
+
+  // top up to $50 lifetime deposits — Standard's minimum
+  await db.insert(payments).values({
+    userId: typeUser.id,
+    status: "completed",
+    kesCents: 390_000,
+    creditedUsdCents: 3_000,
+    phone: "0712345678",
+    checkoutRequestId: "type-test-deposit-2",
+  });
+  await db.update(users).set({ realCashCents: 5_000 }).where(eq(users.id, typeUser.id));
+  const allocAtMin = await allocateReal(db, typeUser.id, "isabella-rossi");
+  check("allocating at/above the account type's minimum deposit succeeds", allocAtMin.ok);
+
+  // --- account types: switching requires clearing the target type's minimum ---
+  const switchTooLow = await switchAccountType(db, typeUser.id, "pro");
+  check("switching to Pro without meeting its $5,000 minimum is rejected", !switchTooLow.ok);
+
+  await db.insert(payments).values({
+    userId: typeUser.id,
+    status: "completed",
+    kesCents: 65_000_000,
+    creditedUsdCents: 500_000, // $5,000, clearing Pro's minimum
+    phone: "0712345678",
+    checkoutRequestId: "type-test-deposit-3",
+  });
+  const switchOk = await switchAccountType(db, typeUser.id, "pro");
+  check("switching to Pro after clearing its minimum succeeds", switchOk.ok);
+  const [afterSwitch] = await db.select().from(users).where(eq(users.id, typeUser.id));
+  check("the stored account type actually changed", afterSwitch.accountType === "pro");
+
+  // --- the Desk: practice-only self-directed positions (Standard account) ---
+  const deskSignup = await signUp(db, "Desk Tester", "desk@example.com", "hunter22", "standard");
   check("desk-test signup succeeds", deskSignup.ok);
   const [deskUser] = await db.select().from(users).where(eq(users.email, "desk@example.com"));
 
   const [beforeOpen] = await db.select().from(users).where(eq(users.id, deskUser.id));
   const open1 = await openPosition(db, deskUser.id, "BTC/USD", "long", 10_000);
-  check("opening a position on an unlocked instrument succeeds for Core tier", open1.ok);
+  check("opening a position on an unlocked instrument succeeds for Standard", open1.ok);
 
   const [afterOpen] = await db.select().from(users).where(eq(users.id, deskUser.id));
   check("opening a position debits the exact stake from practice cash", afterOpen.cashCents === beforeOpen.cashCents - 10_000);
 
   const openLocked = await openPosition(db, deskUser.id, "EUR/USD", "long", 10_000);
-  check("opening a position on a Core-locked instrument (5th slot) is rejected", !openLocked.ok);
+  check("opening a position on a Standard-locked instrument (5th slot) is rejected", !openLocked.ok);
 
-  const openSlTpAsCore = await openPosition(db, deskUser.id, "ETH/USD", "long", 10_000, 1);
-  check("stop-loss/take-profit orders are rejected for Core tier", !openSlTpAsCore.ok);
+  const openSlTpAsStandard = await openPosition(db, deskUser.id, "ETH/USD", "long", 10_000, 1);
+  check("stop-loss/take-profit orders are rejected for Standard", !openSlTpAsStandard.ok);
 
   const { open: openAfterFirst } = await listPositions(db, deskUser.id);
   check("exactly one open position exists", openAfterFirst.length === 1);
+  check("the position uses Standard's 1:500 leverage", openAfterFirst[0].position.leverage === 500);
 
   const closeResult = await closePosition(db, deskUser.id, openAfterFirst[0].position.id);
   check("closing the position succeeds", closeResult.ok);
@@ -206,14 +238,14 @@ async function main() {
   const { open: openAfterClose } = await listPositions(db, deskUser.id);
   check("closed position no longer appears as open", openAfterClose.length === 0);
 
-  // --- the Desk: stop-loss auto-closes on read, credited correctly ---
-  // freshTierUser reached Momentum earlier in this script, which unlocks SL/TP.
-  const slOpen = await openPosition(db, freshTierUser.id, "GOLD", "long", 20_000);
-  check("Momentum tier can open a position on an instrument beyond Core's 4", slOpen.ok);
+  // --- the Desk: stop-loss auto-closes on read, credited correctly (Pro account) ---
+  // typeUser was switched to Pro above, which unlocks all instruments and SL/TP.
+  const slOpen = await openPosition(db, typeUser.id, "GOLD", "long", 20_000);
+  check("a Pro account can open a position on an instrument beyond Standard's 4", slOpen.ok);
   const [slPos] = await db
     .select()
     .from(deskPositions)
-    .where(and(eq(deskPositions.userId, freshTierUser.id), eq(deskPositions.instrument, "GOLD"), eq(deskPositions.active, true)));
+    .where(and(eq(deskPositions.userId, typeUser.id), eq(deskPositions.instrument, "GOLD"), eq(deskPositions.active, true)));
   // Force a guaranteed trigger regardless of the live price's tiny wander, bypassing
   // openPosition's entry-relative sanity check (that check belongs to order entry, not
   // to proving listPositions' auto-close logic works once a threshold IS crossed).
@@ -222,12 +254,12 @@ async function main() {
     .set({ stopLossPrice: slPos.entryPrice * 1000 })
     .where(eq(deskPositions.id, slPos.id));
 
-  const [beforeAutoClose] = await db.select().from(users).where(eq(users.id, freshTierUser.id));
-  const { open: openAfterSl, closed: closedAfterSl } = await listPositions(db, freshTierUser.id);
+  const [beforeAutoClose] = await db.select().from(users).where(eq(users.id, typeUser.id));
+  const { open: openAfterSl, closed: closedAfterSl } = await listPositions(db, typeUser.id);
   check("the stop-loss position auto-closed on read", !openAfterSl.some((p) => p.position.id === slPos.id));
   check("the auto-closed position appears in recently-closed", closedAfterSl.some((p) => p.id === slPos.id));
 
-  const [afterAutoClose] = await db.select().from(users).where(eq(users.id, freshTierUser.id));
+  const [afterAutoClose] = await db.select().from(users).where(eq(users.id, typeUser.id));
   const closedRow = closedAfterSl.find((p) => p.id === slPos.id)!;
   check(
     "auto-close credited stake + P&L back to practice cash",

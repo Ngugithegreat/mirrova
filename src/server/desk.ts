@@ -1,9 +1,10 @@
 import { eq, and, desc } from "drizzle-orm";
 import { users, deskPositions, activity } from "@/db/schema";
 import type { AppDb } from "@/db/types";
-import { getInstrument, INSTRUMENTS } from "@/lib/instruments";
+import { getInstrument } from "@/lib/instruments";
 import { currentPrice } from "@/lib/deskMarket";
-import { getUserTier } from "./tiers";
+import { getUserAccountType } from "./accountTypes";
+import { unlockedDeskInstruments } from "@/lib/accountTypes";
 
 type Result<T> = { ok: false; error: string } | ({ ok: true } & T);
 function fail(error: string): { ok: false; error: string } {
@@ -12,10 +13,6 @@ function fail(error: string): { ok: false; error: string } {
 
 const MIN_STAKE_CENTS = 1000; // $10
 const MAX_STAKE_CENTS = 50_000 * 100; // $50,000
-
-function unlockedInstruments(count: number) {
-  return INSTRUMENTS.slice(0, count).map((i) => i.sym);
-}
 
 /** Signed % move from entry, in the position's favor. */
 function pnlPct(side: string, entryPrice: number, price: number) {
@@ -46,12 +43,12 @@ export async function openPosition(
     return fail(`Stake must be between $${MIN_STAKE_CENTS / 100} and $${(MAX_STAKE_CENTS / 100).toLocaleString()}.`);
   }
 
-  const { tier } = await getUserTier(db, userId);
-  if (!unlockedInstruments(tier.deskInstrumentCount).includes(instrument)) {
-    return fail(`${instrument} unlocks at a higher tier.`);
+  const accountType = await getUserAccountType(db, userId);
+  if (!unlockedDeskInstruments(accountType).includes(instrument)) {
+    return fail(`${instrument} isn't available on your ${accountType.name} account.`);
   }
-  if ((stopLossPrice != null || takeProfitPrice != null) && !tier.deskOrdersWithSlTp) {
-    return fail(`Stop-loss and take-profit orders unlock at a higher tier.`);
+  if ((stopLossPrice != null || takeProfitPrice != null) && !accountType.deskOrdersWithSlTp) {
+    return fail(`Stop-loss and take-profit orders aren't available on your ${accountType.name} account.`);
   }
 
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
@@ -74,7 +71,7 @@ export async function openPosition(
     instrument,
     side,
     stakeUsdCents,
-    leverage: tier.deskLeverage,
+    leverage: accountType.maxLeverage,
     entryPrice,
     stopLossPrice: stopLossPrice ?? null,
     takeProfitPrice: takeProfitPrice ?? null,
@@ -82,7 +79,7 @@ export async function openPosition(
   await db.update(users).set({ cashCents: user.cashCents - stakeUsdCents }).where(eq(users.id, userId));
   await db.insert(activity).values({
     userId,
-    text: `Opened a ${side} Desk position on ${instrument} — $${(stakeUsdCents / 100).toLocaleString()} at ${tier.deskLeverage}× (practice)`,
+    text: `Opened a ${side} Desk position on ${instrument} — $${(stakeUsdCents / 100).toLocaleString()} at 1:${accountType.maxLeverage} (practice)`,
   });
 
   return { ok: true };

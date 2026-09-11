@@ -6,7 +6,7 @@ const ROWS = [
   ["Browsing traders & data", "Free", "Full track records, no paywall"],
   ["Management fee", "0%", "We never charge a % of your assets"],
   ["Deposits & withdrawals", "Free", "Bank transfer, card and mobile money"],
-  ["Performance fee", "10–30%", "Set by each trader · profits only · reduced by your tier"],
+  ["Performance fee", "10–30%", "Set by each trader · profits only"],
   ["Spread markup", "From 0.1%", "Shown per instrument before you copy"],
 ];
 
@@ -28,8 +28,8 @@ export default function Fees() {
             <ButtonLink href="/pricing" variant="secondary">
               The full fee schedule
             </ButtonLink>
-            <ButtonLink href="/pricing#tiers" variant="secondary">
-              Core · Momentum · Apex tiers
+            <ButtonLink href="/pricing#account-types" variant="secondary">
+              Standard · ECN · Pro · Swap-Free
             </ButtonLink>
           </div>
         </Reveal>

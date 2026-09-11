@@ -7,6 +7,7 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   cashCents: integer("cash_cents").notNull(), // practice balance, USD minor units
   realCashCents: integer("real_cash_cents").notNull().default(0), // real, unallocated USD minor units — actual M-Pesa deposits
+  accountType: text("account_type").notNull().default("standard"), // standard | ecn | pro | swapFree — chosen at signup, switchable later
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

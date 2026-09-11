@@ -10,18 +10,21 @@ type UserRow = {
   cashCents: number;
   realCashCents: number;
   createdAt: string;
-  tier: string;
+  accountType: string;
   totalDepositedUsdCents: number;
   activeCopyCount: number;
   realAllocation: { traderSlug: string; amountCents: number } | null;
   openDeskCount: number;
 };
 
-const TIER_TONE: Record<string, string> = {
-  core: "border-line text-ink-2",
-  momentum: "border-mint/30 bg-mint/10 text-mint",
-  apex: "border-violet/40 bg-violet/10 text-violet",
+const TYPE_TONE: Record<string, string> = {
+  standard: "border-line text-ink-2",
+  ecn: "border-mint/30 bg-mint/10 text-mint",
+  pro: "border-violet/40 bg-violet/10 text-violet",
+  swapFree: "border-fuchsia/40 bg-fuchsia/10 text-fuchsia",
 };
+
+const TYPE_LABEL: Record<string, string> = { standard: "Standard", ecn: "ECN", pro: "Pro", swapFree: "Swap-Free" };
 
 export default function UsersTab() {
   const [users, setUsers] = useState<UserRow[] | null>(null);
@@ -57,7 +60,7 @@ export default function UsersTab() {
             <thead>
               <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-3">
                 <th className="py-3 pr-4 font-medium">User</th>
-                <th className="py-3 pr-4 font-medium">Tier</th>
+                <th className="py-3 pr-4 font-medium">Account type</th>
                 <th className="py-3 pr-4 font-medium">Practice cash</th>
                 <th className="py-3 pr-4 font-medium">Real cash</th>
                 <th className="py-3 pr-4 font-medium">Deposited</th>
@@ -75,8 +78,8 @@ export default function UsersTab() {
                     <div className="text-xs text-ink-3">{u.email}</div>
                   </td>
                   <td className="py-3.5 pr-4">
-                    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${TIER_TONE[u.tier] ?? ""}`}>
-                      {u.tier}
+                    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${TYPE_TONE[u.accountType] ?? ""}`}>
+                      {TYPE_LABEL[u.accountType] ?? u.accountType}
                     </span>
                   </td>
                   <td className="tnum py-3.5 pr-4 text-ink-2">{fmtMoney(u.cashCents / 100)}</td>

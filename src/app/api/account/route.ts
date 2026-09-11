@@ -3,24 +3,24 @@ import { getDb } from "@/db/client";
 import { getSessionUser } from "@/server/session";
 import { getPortfolio } from "@/server/account";
 import { computeCopyValueCents } from "@/lib/copyValue";
+import { unlockedDeskInstruments } from "@/lib/accountTypes";
 
 export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ user: null });
 
-  const { copies, activity, tier } = await getPortfolio(getDb(), user.id);
+  const { copies, activity, accountType } = await getPortfolio(getDb(), user.id);
 
   return NextResponse.json({
     user: { name: user.name, email: user.email },
     cashCents: user.cashCents,
-    tier: {
-      id: tier.id,
-      name: tier.name,
-      maxConcurrentCopies: tier.maxConcurrentCopies,
-      feeDiscountPts: tier.feeDiscountPts,
-      deskInstrumentCount: tier.deskInstrumentCount,
-      deskLeverage: tier.deskLeverage,
-      deskOrdersWithSlTp: tier.deskOrdersWithSlTp,
+    accountType: {
+      id: accountType.id,
+      name: accountType.name,
+      maxConcurrentCopies: accountType.maxConcurrentCopies,
+      maxLeverage: accountType.maxLeverage,
+      deskOrdersWithSlTp: accountType.deskOrdersWithSlTp,
+      deskInstruments: unlockedDeskInstruments(accountType),
     },
     copies: copies.map((c) => ({
       slug: c.traderSlug,

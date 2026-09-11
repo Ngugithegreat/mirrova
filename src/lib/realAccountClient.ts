@@ -12,17 +12,16 @@ export type RealPayment = {
 
 export type RealAllocation = { slug: string; amountCents: number; startedAt: string };
 
-export type RealTier = { id: string; name: string; maxConcurrentCopies: number; feeDiscountPts: number };
-export type NextTier = { id: string; name: string; minDepositUsdCents: number };
+export type RealAccountType = { id: string; name: string; minDepositUsdCents: number; maxLeverage: number; maxConcurrentCopies: number };
 
 export type RealAccountState = {
   ready: boolean;
   realCashCents: number;
   allocation: RealAllocation | null;
   payments: RealPayment[];
-  tier: RealTier | null;
+  accountType: RealAccountType | null;
   totalDepositedUsdCents: number;
-  nextTier: NextTier | null;
+  eligibleAccountTypes: string[];
 };
 
 const EMPTY: RealAccountState = {
@@ -30,9 +29,9 @@ const EMPTY: RealAccountState = {
   realCashCents: 0,
   allocation: null,
   payments: [],
-  tier: null,
+  accountType: null,
   totalDepositedUsdCents: 0,
-  nextTier: null,
+  eligibleAccountTypes: [],
 };
 
 let state: RealAccountState = EMPTY;
@@ -74,9 +73,9 @@ export async function refreshRealAccount() {
       realCashCents: data.realCashCents ?? 0,
       allocation: data.allocation ?? null,
       payments: data.payments ?? [],
-      tier: data.tier ?? null,
+      accountType: data.accountType ?? null,
       totalDepositedUsdCents: data.totalDepositedUsdCents ?? 0,
-      nextTier: data.nextTier ?? null,
+      eligibleAccountTypes: data.eligibleAccountTypes ?? [],
     });
   } catch {
     setState({ ...EMPTY, ready: true });
@@ -118,6 +117,10 @@ export const realAccount = {
   },
   async deallocate() {
     await fetchJson("/api/real/deallocate", { method: "POST" });
+    await refreshRealAccount();
+  },
+  async switchType(accountType: string) {
+    await fetchJson("/api/account/switch-type", { method: "POST", body: JSON.stringify({ accountType }) });
     await refreshRealAccount();
   },
 };

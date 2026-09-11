@@ -10,14 +10,13 @@ export type AccountCopy = {
   currentValueCents: number;
 };
 
-export type AccountTier = {
+export type AccountTypeSummary = {
   id: string;
   name: string;
   maxConcurrentCopies: number;
-  feeDiscountPts: number;
-  deskInstrumentCount: number;
-  deskLeverage: number;
+  maxLeverage: number;
   deskOrdersWithSlTp: boolean;
+  deskInstruments: string[];
 };
 
 export type AccountState = {
@@ -26,10 +25,10 @@ export type AccountState = {
   cashCents: number;
   copies: AccountCopy[];
   activity: { text: string; createdAt: string }[];
-  tier: AccountTier | null;
+  accountType: AccountTypeSummary | null;
 };
 
-const EMPTY: AccountState = { ready: false, user: null, cashCents: 0, copies: [], activity: [], tier: null };
+const EMPTY: AccountState = { ready: false, user: null, cashCents: 0, copies: [], activity: [], accountType: null };
 
 let state: AccountState = EMPTY;
 const listeners = new Set<() => void>();
@@ -71,7 +70,7 @@ export async function refreshAccount() {
       cashCents: data.cashCents ?? 0,
       copies: data.copies ?? [],
       activity: data.activity ?? [],
-      tier: data.tier ?? null,
+      accountType: data.accountType ?? null,
     });
   } catch {
     setState({ ...EMPTY, ready: true });
@@ -87,8 +86,8 @@ export function useAccountState(): AccountState {
 }
 
 export const account = {
-  async signUp(name: string, email: string, password: string) {
-    await fetchJson("/api/auth/signup", { method: "POST", body: JSON.stringify({ name, email, password }) });
+  async signUp(name: string, email: string, password: string, accountType: string) {
+    await fetchJson("/api/auth/signup", { method: "POST", body: JSON.stringify({ name, email, password, accountType }) });
     await refreshAccount();
   },
   async logIn(email: string, password: string) {

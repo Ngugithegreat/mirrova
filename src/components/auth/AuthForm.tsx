@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { account, useAccountState } from "@/lib/accountClient";
 import { LogoMark } from "@/components/ui/Logo";
+import { ACCOUNT_TYPES, getAccountType, isAccountTypeId, type AccountTypeId } from "@/lib/accountTypes";
+import { cx } from "@/lib/format";
 
 function Form({ mode }: { mode: "signup" | "login" }) {
   const router = useRouter();
@@ -13,9 +15,12 @@ function Form({ mode }: { mode: "signup" | "login" }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const urlType = params.get("type");
+  const [accountType, setAccountType] = useState<AccountTypeId>(isAccountTypeId(urlType ?? "") ? (urlType as AccountTypeId) : "standard");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const copyTarget = params.get("copy");
+  const selectedType = getAccountType(accountType);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -35,7 +40,7 @@ function Form({ mode }: { mode: "signup" | "login" }) {
     setBusy(true);
     try {
       if (mode === "signup") {
-        await account.signUp(name.trim(), email.trim(), password);
+        await account.signUp(name.trim(), email.trim(), password, accountType);
       } else {
         await account.logIn(email.trim(), password);
       }
@@ -57,11 +62,40 @@ function Form({ mode }: { mode: "signup" | "login" }) {
       </h1>
       <p className="mt-3 text-center text-ink-2">
         {mode === "signup"
-          ? "Start with a $100,000 practice balance. No card required."
+          ? `Start with a $${(selectedType.demoCreditCents / 100).toLocaleString()} practice balance. No card required.`
           : "Log in to your portfolio."}
       </p>
 
-      <form onSubmit={submit} className="panel mt-8 space-y-5 p-7">
+      {mode === "signup" && (
+        <div className="mt-7">
+          <div className="text-center text-xs font-medium uppercase tracking-wide text-ink-3">Choose an account type</div>
+          <div className="mt-3 grid grid-cols-2 gap-2.5">
+            {ACCOUNT_TYPES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setAccountType(t.id)}
+                className={cx(
+                  "rounded-xl border p-3.5 text-left transition-colors",
+                  accountType === t.id ? "border-mint/50 bg-mint/10" : "border-line bg-raised/40 hover:border-line"
+                )}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className={cx("text-sm font-semibold", accountType === t.id ? "text-mint" : "text-ink")}>{t.name}</span>
+                  {t.popular && (
+                    <span className="rounded-full bg-mint/15 px-1.5 py-0.5 text-[9px] font-bold uppercase text-mint">Popular</span>
+                  )}
+                </div>
+                <div className="mt-1 text-[11px] leading-snug text-ink-3">
+                  1:{t.maxLeverage} · ${(t.minDepositUsdCents / 100).toLocaleString()} min
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={submit} className="panel mt-6 space-y-5 p-7">
         {mode === "signup" && (
           <div>
             <label htmlFor="name" className="text-xs font-medium uppercase tracking-wide text-ink-3">
@@ -117,8 +151,9 @@ function Form({ mode }: { mode: "signup" | "login" }) {
         </button>
 
         <p className="text-center text-[11px] leading-relaxed text-ink-3">
-          Your account is real and persisted — trading funds are practice-mode only ($100,000 virtual
-          balance, no real money).
+          {mode === "signup"
+            ? `Your account is real and persisted — trading funds are practice-mode only ($${(selectedType.demoCreditCents / 100).toLocaleString()} virtual balance, no real money).`
+            : "Your account is real and persisted — trading funds are practice-mode only, no real money."}
         </p>
       </form>
 

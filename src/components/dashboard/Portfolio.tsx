@@ -78,21 +78,22 @@ export default function Portfolio() {
         </Link>
       </div>
 
-      {state.tier && (
+      {state.accountType && (
         <Link
-          href="/pricing#tiers"
+          href="/pricing#account-types"
           className="panel mt-6 flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 transition-colors hover:border-mint/30"
         >
           <div className="flex items-center gap-2.5 text-sm">
             <span className="rounded-full border border-mint/30 bg-mint/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-mint">
-              {state.tier.name} tier
+              {state.accountType.name}
             </span>
             <span className="text-ink-2">
-              <span className="tnum">{positions.length}</span> / <span className="tnum">{state.tier.maxConcurrentCopies >= 999 ? "∞" : state.tier.maxConcurrentCopies}</span> copy slots used
-              {state.tier.feeDiscountPts > 0 && ` · ${state.tier.feeDiscountPts}pt performance-fee discount`}
+              <span className="tnum">{positions.length}</span> /{" "}
+              <span className="tnum">{state.accountType.maxConcurrentCopies >= 999 ? "∞" : state.accountType.maxConcurrentCopies}</span> copy
+              slots used
             </span>
           </div>
-          <span className="text-xs font-medium text-mint">See all tiers →</span>
+          <span className="text-xs font-medium text-mint">Compare account types →</span>
         </Link>
       )}
 

@@ -11,7 +11,7 @@ type Overview = {
   activeAllocationsCount: number;
   activeAllocationsTotalCents: number;
   openDeskCount: number;
-  tierCounts: { core: number; momentum: number; apex: number };
+  accountTypeCounts: { standard: number; ecn: number; pro: number; swapFree: number };
 };
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -50,19 +50,23 @@ export default function OverviewTab() {
       </div>
 
       <div className="panel mt-6 p-6">
-        <h2 className="font-display text-base font-semibold">Users by tier</h2>
-        <div className="mt-4 grid grid-cols-3 gap-4 text-center">
+        <h2 className="font-display text-base font-semibold">Users by account type</h2>
+        <div className="mt-4 grid grid-cols-4 gap-4 text-center">
           <div>
-            <div className="tnum text-xl font-semibold text-ink">{data.tierCounts.core}</div>
-            <div className="mt-1 text-xs text-ink-3">Core</div>
+            <div className="tnum text-xl font-semibold text-ink">{data.accountTypeCounts.standard}</div>
+            <div className="mt-1 text-xs text-ink-3">Standard</div>
           </div>
           <div>
-            <div className="tnum text-xl font-semibold text-ink">{data.tierCounts.momentum}</div>
-            <div className="mt-1 text-xs text-ink-3">Momentum</div>
+            <div className="tnum text-xl font-semibold text-ink">{data.accountTypeCounts.ecn}</div>
+            <div className="mt-1 text-xs text-ink-3">ECN</div>
           </div>
           <div>
-            <div className="tnum text-xl font-semibold text-ink">{data.tierCounts.apex}</div>
-            <div className="mt-1 text-xs text-ink-3">Apex</div>
+            <div className="tnum text-xl font-semibold text-ink">{data.accountTypeCounts.pro}</div>
+            <div className="mt-1 text-xs text-ink-3">Pro</div>
+          </div>
+          <div>
+            <div className="tnum text-xl font-semibold text-ink">{data.accountTypeCounts.swapFree}</div>
+            <div className="mt-1 text-xs text-ink-3">Swap-Free</div>
           </div>
         </div>
       </div>

@@ -4,15 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 import { useAccountState } from "@/lib/accountClient";
 import { useDeskState, desk } from "@/lib/deskClient";
 import { INSTRUMENTS } from "@/lib/instruments";
+import { ACCOUNT_TYPES, unlockedDeskInstruments } from "@/lib/accountTypes";
 import { candles } from "@/lib/deskMarket";
 import CandleChart from "./CandleChart";
 import { fmtMoney, cx } from "@/lib/format";
 import { ButtonLink } from "@/components/ui/Button";
 
-const NEXT_TIER_NAME: Record<number, string> = { 4: "Momentum", 8: "Apex" };
-
 function decimalsFor(sym: string) {
   return INSTRUMENTS.find((i) => i.sym === sym)?.decimals ?? 2;
+}
+
+function typeThatUnlocks(sym: string, currentId: string) {
+  return ACCOUNT_TYPES.find((t) => t.id !== currentId && unlockedDeskInstruments(t).includes(sym));
 }
 
 export default function Desk() {
@@ -55,15 +58,14 @@ export default function Desk() {
     );
   }
 
-  const tier = account.tier;
-  const unlockedInstruments = tier ? INSTRUMENTS.slice(0, tier.deskInstrumentCount) : [];
-  const isUnlocked = (s: string) => unlockedInstruments.some((i) => i.sym === s);
+  const accountType = account.accountType;
+  const isUnlocked = (s: string) => accountType?.deskInstruments.includes(s) ?? false;
   const decimals = decimalsFor(sym);
 
   async function submit() {
     setError(null);
     if (!isUnlocked(sym)) {
-      setError("This instrument unlocks at a higher tier.");
+      setError("This instrument isn't available on your account type.");
       return;
     }
     setBusy(true);
@@ -108,12 +110,12 @@ export default function Desk() {
             {(account.cashCents / 100).toLocaleString()} practice balance.
           </p>
         </div>
-        {tier && (
+        {accountType && (
           <div className="text-right text-sm text-ink-2">
             <span className="rounded-full border border-mint/30 bg-mint/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-mint">
-              {tier.name}
+              {accountType.name}
             </span>{" "}
-            {tier.deskLeverage}× · {tier.deskInstrumentCount} instruments
+            1:{accountType.maxLeverage} · {accountType.deskInstruments.length} instruments
           </div>
         )}
       </div>
@@ -121,7 +123,7 @@ export default function Desk() {
       <div className="mt-6 flex flex-wrap gap-2">
         {INSTRUMENTS.map((i) => {
           const unlocked = isUnlocked(i.sym);
-          const lockLabel = !unlocked ? NEXT_TIER_NAME[unlockedInstruments.length] ?? "" : "";
+          const lockLabel = !unlocked ? typeThatUnlocks(i.sym, accountType?.id ?? "standard")?.name ?? "" : "";
           return (
             <button
               key={i.sym}
@@ -203,10 +205,10 @@ export default function Desk() {
             className="tnum mt-2.5 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-lg font-semibold text-ink focus:border-mint/50 focus:outline-none"
           />
 
-          {tier && (
+          {accountType && (
             <p className="mt-2 text-xs text-ink-3">
-              At {tier.deskLeverage}× leverage, exposure is{" "}
-              <span className="tnum text-ink-2">{fmtMoney(stake * tier.deskLeverage)}</span>.
+              At 1:{accountType.maxLeverage} leverage, exposure is{" "}
+              <span className="tnum text-ink-2">{fmtMoney(stake * accountType.maxLeverage)}</span>.
             </p>
           )}
 
@@ -214,14 +216,14 @@ export default function Desk() {
             <input
               type="checkbox"
               checked={useSlTp}
-              disabled={!tier?.deskOrdersWithSlTp}
+              disabled={!accountType?.deskOrdersWithSlTp}
               onChange={(e) => setUseSlTp(e.target.checked)}
               className="h-4 w-4 accent-[#22d3ee]"
             />
             Stop-loss / take-profit
-            {!tier?.deskOrdersWithSlTp && <span className="text-xs text-ink-3">(unlocks at Momentum)</span>}
+            {!accountType?.deskOrdersWithSlTp && <span className="text-xs text-ink-3">(needs a different account type)</span>}
           </label>
-          {useSlTp && tier?.deskOrdersWithSlTp && (
+          {useSlTp && accountType?.deskOrdersWithSlTp && (
             <div className="mt-2 grid grid-cols-2 gap-2">
               <input
                 type="number"
@@ -272,7 +274,7 @@ export default function Desk() {
                   <div>
                     <div className="font-medium text-ink">{p.instrument}</div>
                     <div className="text-xs text-ink-3">
-                      {fmtMoney(p.stakeUsdCents / 100)} · {p.leverage}× · entry {p.entryPrice.toFixed(decimalsFor(p.instrument))}
+                      {fmtMoney(p.stakeUsdCents / 100)} · 1:{p.leverage} · entry {p.entryPrice.toFixed(decimalsFor(p.instrument))}
                     </div>
                   </div>
                 </div>
@@ -303,7 +305,7 @@ export default function Desk() {
             {deskState.closed.map((p) => (
               <div key={p.id} className="flex items-center justify-between gap-4 px-6 py-4 text-sm">
                 <span className="text-ink-2">
-                  {p.side} {p.instrument} · {fmtMoney(p.stakeUsdCents / 100)} · {p.leverage}×
+                  {p.side} {p.instrument} · {fmtMoney(p.stakeUsdCents / 100)} · 1:{p.leverage}
                 </span>
                 <span className={cx("tnum font-semibold", (p.pnlCents ?? 0) >= 0 ? "text-pos" : "text-neg")}>
                   {(p.pnlCents ?? 0) >= 0 ? "+" : "−"}

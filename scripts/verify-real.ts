@@ -101,6 +101,24 @@ async function main() {
   check("real account lists both payment attempts", acct1.payments.length === 2);
   check("no allocation yet", acct1.allocation === null);
 
+  // --- account types: allocation now also requires clearing the account
+  // type's minimum lifetime deposit (Standard = $50) — the $7.69 credited
+  // above is deliberately too small to activate real copying on its own.
+  const allocBelowMin = await allocateReal(db, user.id, "isabella-rossi");
+  check("allocating below Standard's $50 minimum deposit is rejected", !allocBelowMin.ok);
+
+  await db.insert(payments).values({
+    userId: user.id,
+    phone: "254712345678",
+    kesCents: 1_000_000, // KES 10,000.00
+    checkoutRequestId: "test-checkout-3",
+    status: "pending",
+  });
+  await handleStkCallback(db, "test-checkout-3", 0, "The service request is processed successfully.", "RCPT5678");
+  const [afterTopUp] = await db.select().from(users).where(eq(users.id, user.id));
+  const totalRealCents = afterTopUp.realCashCents; // 769 + 7,692 = 8,461 — clears the $50 minimum
+  check("the top-up deposit clears Standard's $50 minimum", totalRealCents >= 5000);
+
   // --- allocation is all-or-nothing ---
   const allocBad = await allocateReal(db, user.id, "not-a-real-trader");
   check("allocating to an unknown trader is rejected", !allocBad.ok);
@@ -115,7 +133,7 @@ async function main() {
     .select()
     .from(realAllocations)
     .where(eq(realAllocations.userId, user.id));
-  check("the allocation records the full amount", allocRow.amountCents === 769);
+  check("the allocation records the full amount", allocRow.amountCents === totalRealCents);
   check("the allocation is active", allocRow.active === true);
 
   const alloc2 = await allocateReal(db, user.id, "elena-vasquez");
@@ -130,7 +148,7 @@ async function main() {
   check("stopping the real allocation succeeds", stop1.ok);
 
   const [afterStop] = await db.select().from(users).where(eq(users.id, user.id));
-  check("stopping returns exactly the original principal — no fabricated gain/loss", afterStop.realCashCents === 769);
+  check("stopping returns exactly the original principal — no fabricated gain/loss", afterStop.realCashCents === totalRealCents);
 
   const stop2 = await deallocateReal(db, user.id);
   check("stopping again with nothing active is rejected", !stop2.ok);
