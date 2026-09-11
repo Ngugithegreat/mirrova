@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import Logo from "@/components/ui/Logo";
 import { ButtonLink } from "@/components/ui/Button";
 import TraderAvatar from "@/components/ui/TraderAvatar";
-import AccountSwitcher from "@/components/site/AccountSwitcher";
 import { account, useAccountState } from "@/lib/accountClient";
 import { useRealAccountState } from "@/lib/realAccountClient";
 import { useSessionMode } from "@/lib/sessionMode";
@@ -22,6 +21,7 @@ const GUEST_LINKS = [
 ];
 
 const MEMBER_LINKS = [
+  { href: "/dashboard", label: "Overview" },
   { href: "/desk", label: "Desk" },
   { href: "/traders", label: "Traders" },
   { href: "/learn", label: "Academy" },
@@ -105,7 +105,6 @@ export default function Navbar() {
         <div className="hidden items-center gap-3 lg:flex">
           {signedIn ? (
             <>
-              <AccountSwitcher />
               <div className="mr-1 hidden text-right xl:block">
                 <div className="text-[9px] uppercase tracking-wide text-ink-3">
                   {isLive ? "Live balance" : "Practice balance"}
@@ -176,16 +175,13 @@ export default function Navbar() {
       {open && (
         <div className="border-t border-line bg-bg px-5 pb-6 pt-3 lg:hidden">
           {signedIn && (
-            <div className="flex items-center justify-between gap-3 border-b border-line-soft py-4">
-              <Link href="/wallet" className="flex min-w-0 items-center gap-3">
-                <TraderAvatar name={state.user!.name} size="md" />
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold text-ink">{state.user!.name}</div>
-                  <div className="truncate text-xs text-ink-3">{state.user!.email}</div>
-                </div>
-              </Link>
-              <AccountSwitcher />
-            </div>
+            <Link href="/dashboard" className="flex min-w-0 items-center gap-3 border-b border-line-soft py-4">
+              <TraderAvatar name={state.user!.name} size="md" />
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-ink">{state.user!.name}</div>
+                <div className="truncate text-xs text-ink-3">{state.user!.email}</div>
+              </div>
+            </Link>
           )}
           <nav className="flex flex-col" aria-label="Mobile">
             {links.map((l) => (
