@@ -10,7 +10,15 @@ export type AccountCopy = {
   currentValueCents: number;
 };
 
-export type AccountTier = { id: string; name: string; maxConcurrentCopies: number; feeDiscountPts: number };
+export type AccountTier = {
+  id: string;
+  name: string;
+  maxConcurrentCopies: number;
+  feeDiscountPts: number;
+  deskInstrumentCount: number;
+  deskLeverage: number;
+  deskOrdersWithSlTp: boolean;
+};
 
 export type AccountState = {
   ready: boolean;

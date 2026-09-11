@@ -77,3 +77,25 @@ export const realAllocations = pgTable("real_allocations", {
   startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
   stoppedAt: timestamp("stopped_at", { withTimezone: true }),
 });
+
+/** Self-directed practice-money positions on the Desk — entirely separate
+ * from copy-trading. Always settled against `cashCents` (practice), never
+ * `realCashCents`. Simulated leverage only; no real funds at risk. */
+export const deskPositions = pgTable("desk_positions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  instrument: text("instrument").notNull(),
+  side: text("side").notNull(), // "long" | "short"
+  stakeUsdCents: integer("stake_usd_cents").notNull(),
+  leverage: integer("leverage").notNull(),
+  entryPrice: doublePrecision("entry_price").notNull(),
+  stopLossPrice: doublePrecision("stop_loss_price"),
+  takeProfitPrice: doublePrecision("take_profit_price"),
+  active: boolean("active").notNull().default(true),
+  openedAt: timestamp("opened_at", { withTimezone: true }).notNull().defaultNow(),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+  closePrice: doublePrecision("close_price"),
+  pnlCents: integer("pnl_cents"),
+});

@@ -13,7 +13,15 @@ export async function GET() {
   return NextResponse.json({
     user: { name: user.name, email: user.email },
     cashCents: user.cashCents,
-    tier: { id: tier.id, name: tier.name, maxConcurrentCopies: tier.maxConcurrentCopies, feeDiscountPts: tier.feeDiscountPts },
+    tier: {
+      id: tier.id,
+      name: tier.name,
+      maxConcurrentCopies: tier.maxConcurrentCopies,
+      feeDiscountPts: tier.feeDiscountPts,
+      deskInstrumentCount: tier.deskInstrumentCount,
+      deskLeverage: tier.deskLeverage,
+      deskOrdersWithSlTp: tier.deskOrdersWithSlTp,
+    },
     copies: copies.map((c) => ({
       slug: c.traderSlug,
       amountCents: c.amountCents,

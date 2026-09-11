@@ -21,6 +21,7 @@ const GUEST_LINKS = [
 ];
 
 const MEMBER_LINKS = [
+  { href: "/desk", label: "Desk" },
   { href: "/traders", label: "Traders" },
   { href: "/learn", label: "Academy" },
 ];

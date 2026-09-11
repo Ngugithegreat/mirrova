@@ -11,8 +11,9 @@ import { join } from "path";
 import * as schema from "../src/db/schema";
 import { signUp, logIn, logOut, getUserByToken, startCopy, stopCopy, getPortfolio, START_CASH_CENTS } from "../src/server/account";
 import { getUserTier } from "../src/server/tiers";
-import { users, payments } from "../src/db/schema";
-import { eq } from "drizzle-orm";
+import { openPosition, listPositions, closePosition } from "../src/server/desk";
+import { users, payments, deskPositions } from "../src/db/schema";
+import { eq, and } from "drizzle-orm";
 import { computeCopyValueCents } from "../src/lib/copyValue";
 import { getTrader } from "../src/lib/traders";
 import { TIERS } from "../src/lib/tiers";
@@ -170,6 +171,67 @@ async function main() {
     check("net value returned equals gross settlement minus the fee", feeStop.valueCents === grossValueCents - expectedFee);
     check("no fee is ever charged on a loss", profitCents > 0 || feeStop.feeCents === 0);
   }
+
+  // --- the Desk: practice-only self-directed positions ---
+  const deskSignup = await signUp(db, "Desk Tester", "desk@example.com", "hunter22");
+  check("desk-test signup succeeds", deskSignup.ok);
+  const [deskUser] = await db.select().from(users).where(eq(users.email, "desk@example.com"));
+
+  const [beforeOpen] = await db.select().from(users).where(eq(users.id, deskUser.id));
+  const open1 = await openPosition(db, deskUser.id, "BTC/USD", "long", 10_000);
+  check("opening a position on an unlocked instrument succeeds for Core tier", open1.ok);
+
+  const [afterOpen] = await db.select().from(users).where(eq(users.id, deskUser.id));
+  check("opening a position debits the exact stake from practice cash", afterOpen.cashCents === beforeOpen.cashCents - 10_000);
+
+  const openLocked = await openPosition(db, deskUser.id, "EUR/USD", "long", 10_000);
+  check("opening a position on a Core-locked instrument (5th slot) is rejected", !openLocked.ok);
+
+  const openSlTpAsCore = await openPosition(db, deskUser.id, "ETH/USD", "long", 10_000, 1);
+  check("stop-loss/take-profit orders are rejected for Core tier", !openSlTpAsCore.ok);
+
+  const { open: openAfterFirst } = await listPositions(db, deskUser.id);
+  check("exactly one open position exists", openAfterFirst.length === 1);
+
+  const closeResult = await closePosition(db, deskUser.id, openAfterFirst[0].position.id);
+  check("closing the position succeeds", closeResult.ok);
+  if (closeResult.ok) {
+    const [afterClose] = await db.select().from(users).where(eq(users.id, deskUser.id));
+    check(
+      "closing credits stake + P&L back to practice cash",
+      afterClose.cashCents === afterOpen.cashCents + 10_000 + closeResult.pnlCents
+    );
+  }
+  const { open: openAfterClose } = await listPositions(db, deskUser.id);
+  check("closed position no longer appears as open", openAfterClose.length === 0);
+
+  // --- the Desk: stop-loss auto-closes on read, credited correctly ---
+  // freshTierUser reached Momentum earlier in this script, which unlocks SL/TP.
+  const slOpen = await openPosition(db, freshTierUser.id, "GOLD", "long", 20_000);
+  check("Momentum tier can open a position on an instrument beyond Core's 4", slOpen.ok);
+  const [slPos] = await db
+    .select()
+    .from(deskPositions)
+    .where(and(eq(deskPositions.userId, freshTierUser.id), eq(deskPositions.instrument, "GOLD"), eq(deskPositions.active, true)));
+  // Force a guaranteed trigger regardless of the live price's tiny wander, bypassing
+  // openPosition's entry-relative sanity check (that check belongs to order entry, not
+  // to proving listPositions' auto-close logic works once a threshold IS crossed).
+  await db
+    .update(deskPositions)
+    .set({ stopLossPrice: slPos.entryPrice * 1000 })
+    .where(eq(deskPositions.id, slPos.id));
+
+  const [beforeAutoClose] = await db.select().from(users).where(eq(users.id, freshTierUser.id));
+  const { open: openAfterSl, closed: closedAfterSl } = await listPositions(db, freshTierUser.id);
+  check("the stop-loss position auto-closed on read", !openAfterSl.some((p) => p.position.id === slPos.id));
+  check("the auto-closed position appears in recently-closed", closedAfterSl.some((p) => p.id === slPos.id));
+
+  const [afterAutoClose] = await db.select().from(users).where(eq(users.id, freshTierUser.id));
+  const closedRow = closedAfterSl.find((p) => p.id === slPos.id)!;
+  check(
+    "auto-close credited stake + P&L back to practice cash",
+    afterAutoClose.cashCents === beforeAutoClose.cashCents + slPos.stakeUsdCents + (closedRow.pnlCents ?? 0)
+  );
 
   // --- logout ---
   await logOut(db, s1.token);

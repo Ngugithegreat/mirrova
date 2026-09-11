@@ -2,26 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { rngFor } from "@/lib/prng";
-
-const MARKETS: { sym: string; price: number; decimals: number }[] = [
-  { sym: "BTC/USD", price: 96420, decimals: 0 },
-  { sym: "ETH/USD", price: 4285, decimals: 0 },
-  { sym: "S&P 500", price: 6890, decimals: 1 },
-  { sym: "NASDAQ 100", price: 25120, decimals: 1 },
-  { sym: "EUR/USD", price: 1.0942, decimals: 4 },
-  { sym: "GBP/USD", price: 1.3118, decimals: 4 },
-  { sym: "GOLD", price: 4012.5, decimals: 1 },
-  { sym: "USD/JPY", price: 148.32, decimals: 2 },
-  { sym: "CRUDE OIL", price: 71.84, decimals: 2 },
-  { sym: "DAX 40", price: 24310, decimals: 1 },
-  { sym: "SILVER", price: 48.9, decimals: 2 },
-  { sym: "AAPL", price: 268.4, decimals: 2 },
-];
+import { INSTRUMENTS } from "@/lib/instruments";
 
 const TICK_BUCKET_MS = 90 * 1000;
 
 function tickerItems(bucket: number) {
-  return MARKETS.map((m) => {
+  return INSTRUMENTS.map((m) => {
     const rnd = rngFor(`ticker:${m.sym}:${bucket}`);
     const chg = Math.round((rnd() - 0.45) * 360) / 100;
     const price = Math.round(m.price * (1 + chg / 100 / 3) * 10 ** m.decimals) / 10 ** m.decimals;
