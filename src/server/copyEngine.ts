@@ -89,6 +89,37 @@ async function decidePosition(db: AppDb, traderSlug: string, bucket: number, ris
   return { instrument, side, entryPrice, plannedClosePrice };
 }
 
+/** Closes one active provider position and settles every open copy mirroring
+ * it — shared by the natural bucket-rollover path (tickTrader) and the
+ * admin's "apply dial changes now" force-rollover (below), so changing
+ * winRatePct/riskPct doesn't require waiting up to BUCKET_MS for the
+ * currently-open illustrative trade to catch up. */
+async function closeActivePosition(db: AppDb, active: typeof providerPositions.$inferSelect) {
+  const closePrice = active.plannedClosePrice ?? (await getRealPrice(active.instrument));
+  await db
+    .update(providerPositions)
+    .set({ active: false, closedAt: new Date(), closePrice })
+    .where(eq(providerPositions.id, active.id));
+
+  const openCopies = await db
+    .select()
+    .from(copyPositions)
+    .where(and(eq(copyPositions.providerPositionId, active.id), eq(copyPositions.active, true)));
+  for (const cp of openCopies) {
+    const realizedPnlCents = settle(cp.sizeUsdCents, active.side, active.entryPrice, closePrice);
+    await db.update(copyPositions).set({ active: false, closedAt: new Date(), realizedPnlCents }).where(eq(copyPositions.id, cp.id));
+  }
+}
+
+/** Closes every currently-open illustrative position immediately, so the
+ * very next read opens fresh ones under whatever winRatePct/riskPct are
+ * configured right now — called after an admin saves the testing dials, so
+ * "I raised risk but nothing changed" isn't true for up to 15 minutes. */
+export async function forceRolloverAllTraders(db: AppDb) {
+  const openPositions = await db.select().from(providerPositions).where(eq(providerPositions.active, true));
+  for (const pos of openPositions) await closeActivePosition(db, pos);
+}
+
 /** Idempotent: whichever request discovers a bucket boundary first performs
  * the transition; every concurrent request derives the same decision for
  * that bucket from the same deterministic seed. */
@@ -109,20 +140,7 @@ async function tickTrader(db: AppDb, traderSlug: string) {
   )[0];
 
   if (active && active.bucket !== bucket) {
-    const closePrice = active.plannedClosePrice ?? (await getRealPrice(active.instrument));
-    await db
-      .update(providerPositions)
-      .set({ active: false, closedAt: new Date(), closePrice })
-      .where(eq(providerPositions.id, active.id));
-
-    const openCopies = await db
-      .select()
-      .from(copyPositions)
-      .where(and(eq(copyPositions.providerPositionId, active.id), eq(copyPositions.active, true)));
-    for (const cp of openCopies) {
-      const realizedPnlCents = settle(cp.sizeUsdCents, active.side, active.entryPrice, closePrice);
-      await db.update(copyPositions).set({ active: false, closedAt: new Date(), realizedPnlCents }).where(eq(copyPositions.id, cp.id));
-    }
+    await closeActivePosition(db, active);
     active = undefined;
   }
 

@@ -119,8 +119,8 @@ export default function SignalTestingTab() {
       </button>
 
       <p className="mt-4 text-xs text-ink-3">
-        Applies the next time a trader with an active real allocation opens a new illustrative position (up to 15
-        minutes) — it doesn&apos;t retroactively change positions already open.
+        Applies immediately — saving closes every currently-open illustrative position right away and opens a fresh
+        one under these settings the next time an account with a real allocation is viewed.
       </p>
     </div>
   );

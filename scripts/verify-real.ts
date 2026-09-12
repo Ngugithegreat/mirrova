@@ -20,7 +20,7 @@ import { users, payments, cryptoPayments, realAllocations } from "../src/db/sche
 import { signUp } from "../src/server/account";
 import { handleStkCallback, reconcileDeposit, getRealAccount, allocateReal, deallocateReal, grantBonus } from "../src/server/realAccount";
 import { handleCryptoIpn, reconcileCryptoDeposit } from "../src/server/cryptoDeposits";
-import { getEngineView, tickEngine } from "../src/server/copyEngine";
+import { getEngineView, tickEngine, forceRolloverAllTraders } from "../src/server/copyEngine";
 import { setWinRatePct, setRiskPct } from "../src/server/settings";
 
 let passed = 0;
@@ -327,6 +327,27 @@ async function main() {
     Math.abs(riskClosedCopy?.realizedPnlCents ?? 0) >= (riskCopyOpen?.sizeUsdCents ?? 0) * 0.015
   );
   await setRiskPct(db, 50); // restore default for the rest of the suite
+
+  // --- admin dial changes apply immediately, not up-to-15-minutes later:
+  // forceRolloverAllTraders closes the open position without waiting for
+  // the bucket to naturally elapse ---
+  const [rolloverPosBefore] = await db
+    .select()
+    .from(schema.providerPositions)
+    .where(and(eq(schema.providerPositions.traderSlug, "elena-vasquez"), eq(schema.providerPositions.active, true)));
+  check("a position is open for the rollover test (from the earlier win-rate test)", !!rolloverPosBefore);
+  await forceRolloverAllTraders(db);
+  const [rolloverPosAfterClose] = await db
+    .select()
+    .from(schema.providerPositions)
+    .where(eq(schema.providerPositions.id, rolloverPosBefore.id));
+  check("forceRolloverAllTraders closes the open position without waiting for its bucket to elapse", rolloverPosAfterClose.active === false);
+  await getEngineView(db, winUser.id);
+  const [rolloverPosAfterReopen] = await db
+    .select()
+    .from(schema.providerPositions)
+    .where(and(eq(schema.providerPositions.traderSlug, "elena-vasquez"), eq(schema.providerPositions.active, true)));
+  check("a fresh position opens right after the forced rollover, on the very next read", !!rolloverPosAfterReopen);
 
   // --- stopping returns exact principal, never invents a return ---
   const stop1 = await deallocateReal(db, user.id);
