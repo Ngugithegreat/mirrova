@@ -2,7 +2,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { providerPositions, copyPositions, realAllocations } from "@/db/schema";
 import type { AppDb } from "@/db/types";
 import { getRealPrice } from "./marketData";
-import { getWinRatePct } from "./settings";
+import { getWinRatePct, getRiskPct } from "./settings";
 import { getTrader } from "@/lib/traders";
 import { rngFor } from "@/lib/prng";
 
@@ -23,8 +23,6 @@ import { rngFor } from "@/lib/prng";
  */
 
 const BUCKET_MS = 15 * 60 * 1000;
-const MIN_SIZE_FRACTION = 0.1;
-const SIZE_FRACTION_RANGE = 0.15; // 10%-25% of the allocation per trade
 const MIN_MOVE_MAGNITUDE = 0.003;
 const MOVE_MAGNITUDE_RANGE = 0.027; // 0.3%-3% designed move
 
@@ -137,11 +135,19 @@ async function tickTrader(db: AppDb, traderSlug: string) {
   const covered = new Set(existingCopies.map((c) => c.realAllocationId));
   const missing = activeAllocations.filter((a) => !covered.has(a.id));
 
-  for (const alloc of missing) {
-    const rnd = rngFor(`engine-size:${alloc.id}:${active.id}`);
-    const fraction = MIN_SIZE_FRACTION + rnd() * SIZE_FRACTION_RANGE;
-    const sizeUsdCents = Math.max(1, Math.round(alloc.amountCents * fraction));
-    await db.insert(copyPositions).values({ providerPositionId: active.id, realAllocationId: alloc.id, userId: alloc.userId, sizeUsdCents });
+  if (missing.length > 0) {
+    // Admin-controlled: how much of the allocation each trade risks (position
+    // size), so testing can make P&L clearly visible instead of the old
+    // fixed 10-25% band, which barely moved a small test balance.
+    const riskPct = await getRiskPct(db);
+    const targetFraction = Math.min(1, Math.max(0.01, riskPct / 100));
+    for (const alloc of missing) {
+      const rnd = rngFor(`engine-size:${alloc.id}:${active.id}`);
+      // ±15% jitter around the target so trades aren't perfectly identical.
+      const fraction = Math.min(1, Math.max(0.01, targetFraction * (0.85 + rnd() * 0.3)));
+      const sizeUsdCents = Math.max(1, Math.round(alloc.amountCents * fraction));
+      await db.insert(copyPositions).values({ providerPositionId: active.id, realAllocationId: alloc.id, userId: alloc.userId, sizeUsdCents });
+    }
   }
 }
 

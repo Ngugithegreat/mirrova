@@ -1,0 +1,1 @@
+ALTER TABLE "platform_settings" ADD COLUMN "risk_pct" integer DEFAULT 50 NOT NULL;

@@ -230,5 +230,10 @@ export const withdrawals = pgTable("withdrawals", {
 export const platformSettings = pgTable("platform_settings", {
   id: text("id").primaryKey().default("singleton"),
   winRatePct: integer("win_rate_pct").notNull().default(55),
+  // % of the allocation risked (used as position size) on each illustrative
+  // trade — admin-controlled so testing can make trades' P&L impact clearly
+  // visible instead of the old fixed 10-25% band, which barely moved a
+  // small test balance.
+  riskPct: integer("risk_pct").notNull().default(50),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
