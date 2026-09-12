@@ -342,9 +342,9 @@ async function main() {
   const wSignup = await signUp(db, "Withdraw Tester", "withdraw@example.com", "hunter22", "standard");
   check("withdrawal-test signup succeeds", wSignup.ok);
   const [wUser] = await db.select().from(users).where(eq(users.email, "withdraw@example.com"));
-  await db.update(users).set({ realCashCents: 10_000 }).where(eq(users.id, wUser.id)); // $100 available
+  await db.update(users).set({ realCashCents: 30_000 }).where(eq(users.id, wUser.id)); // $300 available
 
-  const reqBeforeKyc = await requestWithdrawal(db, wUser.id, 3_000, "0712345678");
+  const reqBeforeKyc = await requestWithdrawal(db, wUser.id, 6_000, "0712345678"); // $60 — above the amount minimum, so this only fails on KYC
   check("a withdrawal request is rejected before identity verification", !reqBeforeKyc.ok);
 
   await submitKyc(db, wUser.id, {
@@ -356,22 +356,22 @@ async function main() {
   });
   await reviewKyc(db, wUser.id, "verified");
   const [afterVerify] = await db.select().from(users).where(eq(users.id, wUser.id));
-  check("verifying identity doesn't touch the real balance", afterVerify.realCashCents === 10_000);
+  check("verifying identity doesn't touch the real balance", afterVerify.realCashCents === 30_000);
 
-  const reqTooBig = await requestWithdrawal(db, wUser.id, 20_000, "0712345678");
+  const reqTooBig = await requestWithdrawal(db, wUser.id, 40_000, "0712345678");
   check("requesting more than the available real balance is rejected", !reqTooBig.ok);
 
   const reqTooSmall = await requestWithdrawal(db, wUser.id, 100, "0712345678");
-  check("requesting below the $5 minimum is rejected", !reqTooSmall.ok);
+  check("requesting below the $50 minimum is rejected", !reqTooSmall.ok);
 
-  const req1 = await requestWithdrawal(db, wUser.id, 3_000, "0712345678"); // $30
+  const req1 = await requestWithdrawal(db, wUser.id, 6_000, "0712345678"); // $60
   check("a valid withdrawal request succeeds", req1.ok);
 
   const [afterRequest] = await db.select().from(users).where(eq(users.id, wUser.id));
-  check("requesting a withdrawal debits the real balance immediately", afterRequest.realCashCents === 7_000);
+  check("requesting a withdrawal debits the real balance immediately", afterRequest.realCashCents === 24_000);
 
   const [pendingRow] = await db.select().from(schema.withdrawals).where(eq(schema.withdrawals.userId, wUser.id));
-  check("the withdrawal is recorded as pending", pendingRow.status === "pending" && pendingRow.amountUsdCents === 3_000);
+  check("the withdrawal is recorded as pending", pendingRow.status === "pending" && pendingRow.amountUsdCents === 6_000);
 
   const payTwice1 = await markWithdrawalPaid(db, pendingRow.id);
   check("marking a withdrawal paid succeeds", payTwice1.ok);
@@ -379,12 +379,12 @@ async function main() {
   check("marking an already-resolved withdrawal paid again is rejected", !payTwice2.ok);
 
   const [afterPaid] = await db.select().from(users).where(eq(users.id, wUser.id));
-  check("marking paid does not touch the real balance again", afterPaid.realCashCents === 7_000);
+  check("marking paid does not touch the real balance again", afterPaid.realCashCents === 24_000);
 
-  const req2 = await requestWithdrawal(db, wUser.id, 2_000, "0712345678"); // $20
+  const req2 = await requestWithdrawal(db, wUser.id, 5_000, "0712345678"); // $50 — exactly at the minimum
   check("a second withdrawal request succeeds", req2.ok);
   const [afterSecondRequest] = await db.select().from(users).where(eq(users.id, wUser.id));
-  check("the second request also debits immediately", afterSecondRequest.realCashCents === 5_000);
+  check("the second request also debits immediately", afterSecondRequest.realCashCents === 19_000);
 
   const [secondRow] = await db
     .select()
@@ -394,7 +394,7 @@ async function main() {
   const rejectResult = await rejectWithdrawal(db, secondRow.id);
   check("rejecting a pending withdrawal succeeds", rejectResult.ok);
   const [afterReject] = await db.select().from(users).where(eq(users.id, wUser.id));
-  check("rejecting a withdrawal refunds the real balance", afterReject.realCashCents === 7_000);
+  check("rejecting a withdrawal refunds the real balance", afterReject.realCashCents === 24_000);
 
   // --- admin auth: stateless HMAC-signed cookie, no DB involved ---
   const priorAdminPassword = process.env.ADMIN_PASSWORD;

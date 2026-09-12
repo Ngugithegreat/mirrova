@@ -12,9 +12,10 @@ export async function initiateCryptoDeposit(
   db: AppDb,
   userId: string,
   amountUsd: number,
-  callbackUrl: string
+  callbackUrl: string,
+  payCurrency?: string
 ): Promise<Result<{ providerPaymentId: string; payAddress: string; payCurrency: string }>> {
-  const created = await createPayment(amountUsd, userId, callbackUrl);
+  const created = await createPayment(amountUsd, userId, callbackUrl, payCurrency);
   if (!created.ok) return fail(created.error);
 
   await db.insert(cryptoPayments).values({

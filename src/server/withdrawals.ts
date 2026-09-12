@@ -8,7 +8,7 @@ function fail(error: string): { ok: false; error: string } {
   return { ok: false, error };
 }
 
-const MIN_WITHDRAWAL_CENTS = 500; // $5
+const MIN_WITHDRAWAL_CENTS = 5000; // $50
 
 /** Debits realCashCents immediately — the request locks the funds the
  * moment it's made, same "commit first" pattern allocateReal already uses.

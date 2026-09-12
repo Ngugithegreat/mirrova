@@ -169,8 +169,12 @@ export const realAccount = {
     await fetchJson("/api/real/withdraw", { method: "POST", body: JSON.stringify({ phone, amountUsdCents }) });
     await refreshRealAccount();
   },
-  async depositCrypto(amountUsd: number) {
-    const data = await fetchJson("/api/payments/crypto/initiate", { method: "POST", body: JSON.stringify({ amountUsd }) });
+  async cryptoCurrencies() {
+    const data = await fetchJson("/api/payments/crypto/currencies");
+    return (data.currencies as string[]) ?? [];
+  },
+  async depositCrypto(amountUsd: number, payCurrency?: string) {
+    const data = await fetchJson("/api/payments/crypto/initiate", { method: "POST", body: JSON.stringify({ amountUsd, payCurrency }) });
     return { providerPaymentId: data.providerPaymentId as string, payAddress: data.payAddress as string, payCurrency: data.payCurrency as string };
   },
   /** Polls NOWPayments-backed status until the deposit settles or times out. */

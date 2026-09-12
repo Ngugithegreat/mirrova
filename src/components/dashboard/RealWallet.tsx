@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAccountState } from "@/lib/accountClient";
 import { realAccount, useRealAccountState } from "@/lib/realAccountClient";
@@ -8,6 +8,33 @@ import { TRADERS, getTrader } from "@/lib/traders";
 import { ACCOUNT_TYPES } from "@/lib/accountTypes";
 import { fmtMoney, timeAgo } from "@/lib/format";
 import TraderAvatar from "@/components/ui/TraderAvatar";
+
+const NETWORK_SUFFIXES: Record<string, string> = {
+  trc20: "TRC-20",
+  erc20: "ERC-20",
+  bep20: "BEP-20",
+  bsc: "BEP-20",
+  polygon: "Polygon",
+  matic: "Polygon",
+  arb: "Arbitrum",
+  arbitrum: "Arbitrum",
+  op: "Optimism",
+  optimism: "Optimism",
+  sol: "Solana",
+};
+
+/** NOWPayments returns lowercase ticker-style codes like "usdttrc20" or
+ * "btc" — split a known network suffix off for a readable label, otherwise
+ * just uppercase the raw code. */
+function formatCryptoCurrency(code: string): string {
+  for (const [suffix, label] of Object.entries(NETWORK_SUFFIXES)) {
+    if (code.length > suffix.length && code.endsWith(suffix)) {
+      const base = code.slice(0, -suffix.length);
+      return `${base.toUpperCase()} (${label})`;
+    }
+  }
+  return code.toUpperCase();
+}
 
 const STATUS_TONE: Record<string, string> = {
   completed: "bg-pos/10 text-pos",
@@ -23,14 +50,27 @@ export default function RealWallet() {
 
   const [depositMethod, setDepositMethod] = useState<"mpesa" | "crypto">("mpesa");
   const [phone, setPhone] = useState("");
-  const [amountKes, setAmountKes] = useState(1000);
+  const [amountKes, setAmountKes] = useState(7000);
   const [depositBusy, setDepositBusy] = useState(false);
   const [depositMsg, setDepositMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
-  const [cryptoAmountUsd, setCryptoAmountUsd] = useState(20);
+  const [cryptoAmountUsd, setCryptoAmountUsd] = useState(50);
+  const [cryptoCurrencies, setCryptoCurrencies] = useState<string[] | null>(null);
+  const [cryptoCurrency, setCryptoCurrency] = useState("usdttrc20");
   const [cryptoBusy, setCryptoBusy] = useState(false);
   const [cryptoMsg, setCryptoMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [cryptoDeposit, setCryptoDeposit] = useState<{ payAddress: string; payCurrency: string } | null>(null);
+
+  useEffect(() => {
+    if (depositMethod !== "crypto" || cryptoCurrencies) return;
+    realAccount
+      .cryptoCurrencies()
+      .then((list) => {
+        setCryptoCurrencies(list);
+        if (list.length > 0 && !list.includes(cryptoCurrency)) setCryptoCurrency(list[0]);
+      })
+      .catch(() => setCryptoCurrencies([]));
+  }, [depositMethod, cryptoCurrencies, cryptoCurrency]);
 
   const [selectedSlug, setSelectedSlug] = useState("");
   const [allocBusy, setAllocBusy] = useState(false);
@@ -40,7 +80,7 @@ export default function RealWallet() {
   const [switchError, setSwitchError] = useState<string | null>(null);
 
   const [withdrawPhone, setWithdrawPhone] = useState("");
-  const [withdrawAmount, setWithdrawAmount] = useState(5);
+  const [withdrawAmount, setWithdrawAmount] = useState(50);
   const [withdrawBusy, setWithdrawBusy] = useState(false);
   const [withdrawMsg, setWithdrawMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
@@ -75,7 +115,7 @@ export default function RealWallet() {
     setCryptoMsg(null);
     setCryptoBusy(true);
     try {
-      const { providerPaymentId, payAddress, payCurrency } = await realAccount.depositCrypto(cryptoAmountUsd);
+      const { providerPaymentId, payAddress, payCurrency } = await realAccount.depositCrypto(cryptoAmountUsd, cryptoCurrency);
       setCryptoDeposit({ payAddress, payCurrency });
       setCryptoMsg({ kind: "ok", text: "Send the exact amount to the address below — this can take a few minutes to confirm." });
       const status = await realAccount.pollCryptoDeposit(providerPaymentId);
@@ -249,10 +289,10 @@ export default function RealWallet() {
                 </div>
                 <div>
                   <label htmlFor="amountKes" className="text-xs font-medium uppercase tracking-wide text-ink-3">
-                    Amount (KES)
+                    Amount (KES, min ~KES 6,500 / $50)
                   </label>
                   <div className="mt-2 flex items-center gap-2">
-                    {[500, 1000, 5000, 10000].map((v) => (
+                    {[7000, 10000, 15000, 25000].map((v) => (
                       <button
                         key={v}
                         type="button"
@@ -268,7 +308,7 @@ export default function RealWallet() {
                   <input
                     id="amountKes"
                     type="number"
-                    min={10}
+                    min={6500}
                     step={1}
                     value={amountKes}
                     onChange={(e) => setAmountKes(Number(e.target.value))}
@@ -292,12 +332,12 @@ export default function RealWallet() {
               <form onSubmit={handleCryptoDeposit} className="mt-6 space-y-4">
                 <div>
                   <label htmlFor="cryptoAmountUsd" className="text-xs font-medium uppercase tracking-wide text-ink-3">
-                    Amount (USD, min $20)
+                    Amount (USD, min $50)
                   </label>
                   <input
                     id="cryptoAmountUsd"
                     type="number"
-                    min={20}
+                    min={50}
                     step={1}
                     value={cryptoAmountUsd}
                     onChange={(e) => setCryptoAmountUsd(Number(e.target.value))}
@@ -305,9 +345,36 @@ export default function RealWallet() {
                   />
                 </div>
 
+                <div>
+                  <label htmlFor="cryptoCurrency" className="text-xs font-medium uppercase tracking-wide text-ink-3">
+                    Pay with
+                  </label>
+                  <select
+                    id="cryptoCurrency"
+                    value={cryptoCurrency}
+                    onChange={(e) => setCryptoCurrency(e.target.value)}
+                    disabled={!cryptoCurrencies || cryptoCurrencies.length === 0}
+                    className="mt-2 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-sm text-ink focus:border-mint/50 focus:outline-none disabled:opacity-60"
+                  >
+                    {!cryptoCurrencies ? (
+                      <option>Loading currencies…</option>
+                    ) : cryptoCurrencies.length === 0 ? (
+                      <option>USDT (TRC-20)</option>
+                    ) : (
+                      cryptoCurrencies.map((c) => (
+                        <option key={c} value={c}>
+                          {formatCryptoCurrency(c)}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
                 {cryptoDeposit && (
                   <div className="rounded-xl border border-line bg-raised/60 p-4">
-                    <div className="text-[11px] uppercase tracking-wide text-ink-3">Send USDT (TRC-20) to</div>
+                    <div className="text-[11px] uppercase tracking-wide text-ink-3">
+                      Send {formatCryptoCurrency(cryptoDeposit.payCurrency)} to
+                    </div>
                     <div className="tnum mt-1.5 break-all text-sm text-ink">{cryptoDeposit.payAddress}</div>
                     <button
                       type="button"
@@ -440,12 +507,12 @@ export default function RealWallet() {
                 </div>
                 <div>
                   <label htmlFor="withdrawAmount" className="text-xs font-medium uppercase tracking-wide text-ink-3">
-                    Amount (USD)
+                    Amount (USD, min $50)
                   </label>
                   <input
                     id="withdrawAmount"
                     type="number"
-                    min={5}
+                    min={50}
                     step={1}
                     value={withdrawAmount}
                     onChange={(e) => setWithdrawAmount(Number(e.target.value))}

@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
 const API_BASE = "https://api.nowpayments.io/v1";
-const MIN_USD = 20;
+const MIN_USD = 50;
 
 function required(name: string): string {
   const v = process.env[name];
@@ -28,7 +28,14 @@ export type CreatePaymentResult =
   | { ok: true; providerPaymentId: string; payAddress: string; payCurrency: string }
   | { ok: false; error: string };
 
-export async function createPayment(amountUsd: number, orderId: string, callbackUrl: string): Promise<CreatePaymentResult> {
+const DEFAULT_PAY_CURRENCY = "usdttrc20";
+
+export async function createPayment(
+  amountUsd: number,
+  orderId: string,
+  callbackUrl: string,
+  payCurrency: string = DEFAULT_PAY_CURRENCY
+): Promise<CreatePaymentResult> {
   try {
     if (!Number.isFinite(amountUsd) || amountUsd < MIN_USD) {
       return { ok: false, error: `Minimum crypto deposit is $${MIN_USD}.` };
@@ -41,7 +48,7 @@ export async function createPayment(amountUsd: number, orderId: string, callback
       body: JSON.stringify({
         price_amount: amountUsd,
         price_currency: "usd",
-        pay_currency: "usdttrc20",
+        pay_currency: payCurrency,
         order_id: orderId,
         order_description: "Asport Traders wallet deposit",
         ipn_callback_url: callbackUrl,
@@ -57,11 +64,29 @@ export async function createPayment(amountUsd: number, orderId: string, callback
       ok: true,
       providerPaymentId: String(data.payment_id),
       payAddress: data.pay_address,
-      payCurrency: data.pay_currency ?? "usdttrc20",
+      payCurrency: data.pay_currency ?? payCurrency,
     };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not create a crypto deposit address." };
   }
+}
+
+/** The currencies actually enabled on this NOWPayments merchant account
+ * (configured in their dashboard) — not the full platform list, since
+ * offering a currency the merchant hasn't enabled would just fail at
+ * payment-creation time. Falls back to the single default on any error so
+ * the deposit form always has at least one working option. */
+export async function listAvailableCurrencies(): Promise<string[]> {
+  try {
+    const apiKey = required("NOWPAYMENTS_API_KEY");
+    const res = await fetch(`${API_BASE}/merchant/coins`, { headers: { "x-api-key": apiKey } });
+    const data = await res.json().catch(() => ({}));
+    const coins: unknown = data?.selectedCurrencies;
+    if (Array.isArray(coins) && coins.length > 0) return coins.map(String);
+  } catch {
+    // fall through to default
+  }
+  return [DEFAULT_PAY_CURRENCY];
 }
 
 export type PaymentStatusResult =

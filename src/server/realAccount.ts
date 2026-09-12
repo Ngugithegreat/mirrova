@@ -3,7 +3,9 @@ import { users, payments, cryptoPayments, realAllocations, kycProfiles, activity
 import type { AppDb } from "@/db/types";
 import { getTrader } from "@/lib/traders";
 import { ACCOUNT_TYPES, isAccountTypeId, type AccountTypeId } from "@/lib/accountTypes";
-import { kesToUsdCents } from "./fx";
+import { kesToUsdCents, usdKesRate } from "./fx";
+
+const MIN_DEPOSIT_USD = 50;
 import { stkPush, stkQuery, normalizeKenyanPhone } from "./mpesa";
 import { getUserAccountType, getTotalDeposited, setUserAccountType } from "./accountTypes";
 import { listWithdrawals } from "./withdrawals";
@@ -22,7 +24,10 @@ export async function initiateDeposit(
 ): Promise<Result<{ checkoutRequestId: string }>> {
   const phone = normalizeKenyanPhone(phoneRaw);
   if (!phone) return fail("Enter a valid Kenyan phone number (e.g. 0712345678).");
-  if (!Number.isFinite(amountKes) || amountKes < 10) return fail("Minimum deposit is KES 10.");
+  if (!Number.isFinite(amountKes) || amountKes <= 0) return fail("Enter a valid amount.");
+  const rate = await usdKesRate();
+  const minKes = Math.ceil(MIN_DEPOSIT_USD * rate);
+  if (amountKes < minKes) return fail(`Minimum deposit is KES ${minKes.toLocaleString()} (~$${MIN_DEPOSIT_USD}).`);
   if (amountKes > 150_000) return fail("Maximum per transaction is KES 150,000.");
 
   const push = await stkPush(phone, amountKes, "Asport Traders");
