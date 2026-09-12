@@ -21,7 +21,7 @@ import { signUp } from "../src/server/account";
 import { handleStkCallback, reconcileDeposit, getRealAccount, allocateReal, deallocateReal } from "../src/server/realAccount";
 import { handleCryptoIpn, reconcileCryptoDeposit } from "../src/server/cryptoDeposits";
 import { getEngineView, tickEngine } from "../src/server/copyEngine";
-import { setWinRatePct } from "../src/server/settings";
+import { setWinRatePct, setRiskPct } from "../src/server/settings";
 
 let passed = 0;
 let failed = 0;
@@ -291,6 +291,42 @@ async function main() {
     .from(schema.copyPositions)
     .where(and(eq(schema.copyPositions.userId, loseUser.id), eq(schema.copyPositions.active, false)));
   check("with winRatePct=0, the illustrative position always closes at a loss", (loseClosedCopy?.realizedPnlCents ?? 1) < 0);
+
+  // --- admin risk dial: at max risk, trade magnitude is scaled up too, not
+  // just position size — proves the "trades close in cents" fix actually
+  // took effect (magnitude scales with riskPct, see copyEngine.ts) ---
+  await setWinRatePct(db, 100);
+  await setRiskPct(db, 100);
+  const riskUser = await signUp(db, "Risk Dial Tester", "riskdial@example.com", "hunter22pw").then(async (r) => {
+    if (!r.ok) throw new Error("signup failed");
+    const [u] = await db.select().from(users).where(eq(users.email, "riskdial@example.com"));
+    return u;
+  });
+  await db.update(users).set({ realCashCents: 100_000 }).where(eq(users.id, riskUser.id));
+  await db.insert(payments).values({
+    userId: riskUser.id,
+    phone: "254712345678",
+    kesCents: 1_000_000,
+    checkoutRequestId: "test-checkout-riskdial",
+    status: "completed",
+    creditedUsdCents: 100_000,
+  });
+  await allocateReal(db, riskUser.id, "yuki-tanaka");
+  await getEngineView(db, riskUser.id);
+  const [riskPos] = await db.select().from(schema.providerPositions).where(eq(schema.providerPositions.traderSlug, "yuki-tanaka"));
+  check("a position opened for the max-risk magnitude test", !!riskPos);
+  const [riskCopyOpen] = await db.select().from(schema.copyPositions).where(eq(schema.copyPositions.userId, riskUser.id));
+  await db.update(schema.providerPositions).set({ bucket: riskPos.bucket - 1 }).where(eq(schema.providerPositions.id, riskPos.id));
+  await getEngineView(db, riskUser.id);
+  const [riskClosedCopy] = await db
+    .select()
+    .from(schema.copyPositions)
+    .where(and(eq(schema.copyPositions.userId, riskUser.id), eq(schema.copyPositions.active, false)));
+  check(
+    "at riskPct=100, realized P&L is at least 1.5% of the mirrored size (proves magnitude scales with risk, not just position size)",
+    Math.abs(riskClosedCopy?.realizedPnlCents ?? 0) >= (riskCopyOpen?.sizeUsdCents ?? 0) * 0.015
+  );
+  await setRiskPct(db, 50); // restore default for the rest of the suite
 
   // --- stopping returns exact principal, never invents a return ---
   const stop1 = await deallocateReal(db, user.id);

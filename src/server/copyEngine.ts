@@ -23,8 +23,11 @@ import { rngFor } from "@/lib/prng";
  */
 
 const BUCKET_MS = 15 * 60 * 1000;
-const MIN_MOVE_MAGNITUDE = 0.003;
-const MOVE_MAGNITUDE_RANGE = 0.027; // 0.3%-3% designed move
+// Base range at the default 50% risk dial; scaled by riskPct in
+// decidePosition so "risk" governs how big trades feel, not just how much
+// of the balance is at stake (see the sizing loop in tickTrader).
+const MIN_MOVE_MAGNITUDE = 0.01;
+const MOVE_MAGNITUDE_RANGE = 0.04; // 1%-5% base designed move
 
 const CATEGORY_INSTRUMENTS: Record<string, string[]> = {
   Stocks: ["AAPL"],
@@ -60,7 +63,7 @@ async function currentInterpolatedPrice(pos: typeof providerPositions.$inferSele
   return pos.entryPrice + (pos.plannedClosePrice - pos.entryPrice) * progress + noise;
 }
 
-async function decidePosition(db: AppDb, traderSlug: string, bucket: number) {
+async function decidePosition(db: AppDb, traderSlug: string, bucket: number, riskPct: number) {
   const trader = getTrader(traderSlug);
   const rnd = rngFor(`engine:${traderSlug}:${bucket}`);
   const markets = trader?.markets ?? ["Indices"];
@@ -72,7 +75,12 @@ async function decidePosition(db: AppDb, traderSlug: string, bucket: number) {
   const entryPrice = await getRealPrice(instrument);
   const winRatePct = await getWinRatePct(db);
   const designedWin = rnd() < winRatePct / 100;
-  const magnitude = MIN_MOVE_MAGNITUDE + rnd() * MOVE_MAGNITUDE_RANGE;
+  // Scaled by the same admin risk dial used for position sizing (1.0x at
+  // the default 50%, 2.0x at 100%, 0.2x at 10%) — otherwise even 100% risk
+  // only ever moves 1%-5% of the allocation, which reads as "cents" on a
+  // small test balance.
+  const riskScale = riskPct / 50;
+  const magnitude = (MIN_MOVE_MAGNITUDE + rnd() * MOVE_MAGNITUDE_RANGE) * riskScale;
   // A long position profits from a price rise, a short from a fall — pick
   // the sign so the position lands on the designed outcome.
   const priceDelta = (side === "long") === designedWin ? magnitude : -magnitude;
@@ -87,6 +95,10 @@ async function decidePosition(db: AppDb, traderSlug: string, bucket: number) {
 async function tickTrader(db: AppDb, traderSlug: string) {
   const now = Date.now();
   const bucket = Math.floor(now / BUCKET_MS);
+  // Fetched once and reused for both the designed price-move magnitude
+  // (decidePosition, below) and position sizing (the missing-allocations
+  // loop) — a single admin dial controls both.
+  const riskPct = await getRiskPct(db);
 
   let active: typeof providerPositions.$inferSelect | undefined = (
     await db
@@ -121,7 +133,7 @@ async function tickTrader(db: AppDb, traderSlug: string) {
 
   if (!active) {
     if (activeAllocations.length === 0) return; // nobody allocated to this trader — nothing to mirror
-    const { instrument, side, entryPrice, plannedClosePrice } = await decidePosition(db, traderSlug, bucket);
+    const { instrument, side, entryPrice, plannedClosePrice } = await decidePosition(db, traderSlug, bucket, riskPct);
     [active] = await db.insert(providerPositions).values({ traderSlug, instrument, side, entryPrice, plannedClosePrice, bucket }).returning();
   }
 
@@ -139,7 +151,6 @@ async function tickTrader(db: AppDb, traderSlug: string) {
     // Admin-controlled: how much of the allocation each trade risks (position
     // size), so testing can make P&L clearly visible instead of the old
     // fixed 10-25% band, which barely moved a small test balance.
-    const riskPct = await getRiskPct(db);
     const targetFraction = Math.min(1, Math.max(0.01, riskPct / 100));
     for (const alloc of missing) {
       const rnd = rngFor(`engine-size:${alloc.id}:${active.id}`);
