@@ -23,13 +23,15 @@ const NETWORK_SUFFIXES: Record<string, string> = {
   sol: "Solana",
 };
 
-/** NOWPayments returns lowercase ticker-style codes like "usdttrc20" or
- * "btc" — split a known network suffix off for a readable label, otherwise
- * just uppercase the raw code. */
+/** NOWPayments returns ticker-style codes like "usdttrc20" or "USDTTRC20" —
+ * split a known network suffix off for a readable label, otherwise just
+ * uppercase the raw code. Matching is case-insensitive since the API's
+ * casing isn't consistent across endpoints. */
 function formatCryptoCurrency(code: string): string {
+  const lower = code.toLowerCase();
   for (const [suffix, label] of Object.entries(NETWORK_SUFFIXES)) {
-    if (code.length > suffix.length && code.endsWith(suffix)) {
-      const base = code.slice(0, -suffix.length);
+    if (lower.length > suffix.length && lower.endsWith(suffix)) {
+      const base = lower.slice(0, -suffix.length);
       return `${base.toUpperCase()} (${label})`;
     }
   }
