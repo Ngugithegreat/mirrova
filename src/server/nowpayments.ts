@@ -71,18 +71,33 @@ export async function createPayment(
   }
 }
 
+/** A curated shortlist of major coins, shown instead of the merchant
+ * account's full ~400-currency list (overwhelming for a deposit form) —
+ * filtered down to whichever of these NOWPayments actually offers below. */
+const POPULAR_CURRENCIES = [
+  "usdttrc20", "usdterc20", "usdtbsc", "usdc", "btc", "eth",
+  "ltc", "bnbbsc", "trx", "xrp", "sol", "doge", "ada",
+];
+
 /** The currencies actually enabled on this NOWPayments merchant account
- * (configured in their dashboard) — not the full platform list, since
- * offering a currency the merchant hasn't enabled would just fail at
- * payment-creation time. Falls back to the single default on any error so
- * the deposit form always has at least one working option. */
+ * (configured in their dashboard), narrowed to a curated popular subset so
+ * the deposit form isn't a 400-item dropdown — never a currency the
+ * merchant hasn't enabled, since that would just fail at payment-creation
+ * time. Falls back to the full merchant list (then the single default) if
+ * the curated intersection comes up empty. Matching is case-insensitive
+ * since NOWPayments' returned casing has been observed to vary. */
 export async function listAvailableCurrencies(): Promise<string[]> {
   try {
     const apiKey = required("NOWPAYMENTS_API_KEY");
     const res = await fetch(`${API_BASE}/merchant/coins`, { headers: { "x-api-key": apiKey } });
     const data = await res.json().catch(() => ({}));
     const coins: unknown = data?.selectedCurrencies;
-    if (Array.isArray(coins) && coins.length > 0) return coins.map(String);
+    if (Array.isArray(coins) && coins.length > 0) {
+      const available = new Set(coins.map((c) => String(c).toLowerCase()));
+      const curated = POPULAR_CURRENCIES.filter((c) => available.has(c));
+      if (curated.length > 0) return curated;
+      return coins.map(String);
+    }
   } catch {
     // fall through to default
   }
