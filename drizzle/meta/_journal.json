@@ -78,6 +78,13 @@
       "when": 1789202396151,
       "tag": "0010_zippy_vampiro",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789223122126,
+      "tag": "0011_cynical_lethal_legion",
+      "breakpoints": true
     }
   ]
 }

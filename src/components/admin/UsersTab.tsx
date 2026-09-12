@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { fmtMoney } from "@/lib/format";
 
 type UserRow = {
@@ -29,6 +29,12 @@ const TYPE_LABEL: Record<string, string> = { standard: "Standard", ecn: "ECN", p
 export default function UsersTab() {
   const [users, setUsers] = useState<UserRow[] | null>(null);
   const [q, setQ] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [bonusOpenFor, setBonusOpenFor] = useState<string | null>(null);
+  const [bonusAmount, setBonusAmount] = useState("");
+  const [bonusNote, setBonusNote] = useState("");
+  const [bonusBusy, setBonusBusy] = useState(false);
+  const [bonusMsg, setBonusMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -39,7 +45,34 @@ export default function UsersTab() {
         .catch(() => setUsers([]));
     }, 250);
     return () => clearTimeout(id);
-  }, [q]);
+  }, [q, refreshKey]);
+
+  function openBonus(userId: string) {
+    setBonusOpenFor(userId);
+    setBonusAmount("");
+    setBonusNote("");
+    setBonusMsg(null);
+  }
+
+  async function submitBonus(userId: string) {
+    setBonusBusy(true);
+    setBonusMsg(null);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/bonus`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amountUsd: Number(bonusAmount), note: bonusNote || undefined }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      setBonusOpenFor(null);
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      setBonusMsg({ kind: "err", text: err instanceof Error ? err.message : "Something went wrong." });
+    } finally {
+      setBonusBusy(false);
+    }
+  }
 
   return (
     <div>
@@ -67,12 +100,14 @@ export default function UsersTab() {
                 <th className="py-3 pr-4 font-medium">Copies</th>
                 <th className="py-3 pr-4 font-medium">Real allocation</th>
                 <th className="py-3 pr-4 font-medium">Desk</th>
-                <th className="py-3 text-right font-medium">Joined</th>
+                <th className="py-3 pr-4 text-right font-medium">Joined</th>
+                <th className="py-3 text-right font-medium">Bonus</th>
               </tr>
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="border-b border-line-soft last:border-0">
+                <Fragment key={u.id}>
+                <tr className="border-b border-line-soft last:border-0">
                   <td className="py-3.5 pr-4">
                     <div className="font-medium text-ink">{u.name}</div>
                     <div className="text-xs text-ink-3">{u.email}</div>
@@ -96,8 +131,54 @@ export default function UsersTab() {
                     )}
                   </td>
                   <td className="tnum py-3.5 pr-4 text-ink-2">{u.openDeskCount}</td>
-                  <td className="py-3.5 text-right text-xs text-ink-3">{new Date(u.createdAt).toLocaleDateString()}</td>
+                  <td className="py-3.5 pr-4 text-right text-xs text-ink-3">{new Date(u.createdAt).toLocaleDateString()}</td>
+                  <td className="py-3.5 text-right">
+                    <button
+                      onClick={() => (bonusOpenFor === u.id ? setBonusOpenFor(null) : openBonus(u.id))}
+                      className="rounded-lg border border-line px-2.5 py-1 text-xs text-ink-2 transition-colors hover:border-mint/50 hover:text-mint"
+                    >
+                      {bonusOpenFor === u.id ? "Cancel" : "Grant bonus"}
+                    </button>
+                  </td>
                 </tr>
+                {bonusOpenFor === u.id && (
+                  <tr className="border-b border-line-soft bg-raised/40 last:border-0">
+                    <td colSpan={10} className="px-4 py-4">
+                      <div className="flex flex-wrap items-end gap-3">
+                        <div>
+                          <label className="text-xs font-medium uppercase tracking-wide text-ink-3">Amount (USD)</label>
+                          <input
+                            type="number"
+                            min={1}
+                            step={1}
+                            value={bonusAmount}
+                            onChange={(e) => setBonusAmount(e.target.value)}
+                            placeholder="50"
+                            className="tnum mt-1.5 w-32 rounded-lg border border-line bg-raised/60 px-3 py-2 text-sm text-ink focus:border-mint/50 focus:outline-none"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-xs font-medium uppercase tracking-wide text-ink-3">Note (optional)</label>
+                          <input
+                            value={bonusNote}
+                            onChange={(e) => setBonusNote(e.target.value)}
+                            placeholder="e.g. loyalty bonus"
+                            className="mt-1.5 w-full rounded-lg border border-line bg-raised/60 px-3 py-2 text-sm text-ink placeholder:text-ink-3 focus:border-mint/50 focus:outline-none"
+                          />
+                        </div>
+                        <button
+                          onClick={() => submitBonus(u.id)}
+                          disabled={bonusBusy || !bonusAmount || Number(bonusAmount) <= 0}
+                          className="rounded-lg border border-mint/50 bg-mint/10 px-4 py-2 text-sm font-medium text-mint transition-colors disabled:opacity-50"
+                        >
+                          {bonusBusy ? "Granting…" : "Confirm grant"}
+                        </button>
+                      </div>
+                      {bonusMsg && <p className={`mt-2 text-xs ${bonusMsg.kind === "ok" ? "text-mint" : "text-neg"}`}>{bonusMsg.text}</p>}
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>

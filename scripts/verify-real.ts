@@ -18,7 +18,7 @@ import { eq, and } from "drizzle-orm";
 import * as schema from "../src/db/schema";
 import { users, payments, cryptoPayments, realAllocations } from "../src/db/schema";
 import { signUp } from "../src/server/account";
-import { handleStkCallback, reconcileDeposit, getRealAccount, allocateReal, deallocateReal } from "../src/server/realAccount";
+import { handleStkCallback, reconcileDeposit, getRealAccount, allocateReal, deallocateReal, grantBonus } from "../src/server/realAccount";
 import { handleCryptoIpn, reconcileCryptoDeposit } from "../src/server/cryptoDeposits";
 import { getEngineView, tickEngine } from "../src/server/copyEngine";
 import { setWinRatePct, setRiskPct } from "../src/server/settings";
@@ -345,6 +345,16 @@ async function main() {
   });
   const allocZero = await allocateReal(db, freshUser.id, "isabella-rossi");
   check("allocating with zero real balance is rejected", !allocZero.ok);
+
+  // --- admin-granted bonus credits realCashCents directly, audited ---
+  const bonusResult = await grantBonus(db, freshUser.id, 2_500, "welcome bonus");
+  check("granting a bonus succeeds", bonusResult.ok);
+  const [afterBonus] = await db.select().from(users).where(eq(users.id, freshUser.id));
+  check("the bonus is credited to realCashCents", afterBonus.realCashCents === 2_500);
+  const [bonusRow] = await db.select().from(schema.bonusGrants).where(eq(schema.bonusGrants.userId, freshUser.id));
+  check("the bonus is recorded in the audit table", bonusRow?.amountCents === 2_500 && bonusRow?.note === "welcome bonus");
+  const bonusBad = await grantBonus(db, freshUser.id, -100);
+  check("granting a non-positive bonus is rejected", !bonusBad.ok);
 
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);

@@ -101,6 +101,19 @@ export const realAllocations = pgTable("real_allocations", {
   stoppedAt: timestamp("stopped_at", { withTimezone: true }),
 });
 
+/** Admin-granted goodwill credit to a user's real balance — a deliberate,
+ * logged admin action (not fabricated trading P&L). The credit itself lands
+ * in users.realCashCents; this table exists purely as an audit trail. */
+export const bonusGrants = pgTable("bonus_grants", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  amountCents: integer("amount_cents").notNull(),
+  note: text("note"),
+  grantedAt: timestamp("granted_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** Self-directed practice-money positions on the Desk — entirely separate
  * from copy-trading. Always settled against `cashCents` (practice), never
  * `realCashCents`. Simulated leverage only; no real funds at risk. */

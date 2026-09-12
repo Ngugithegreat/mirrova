@@ -1,5 +1,5 @@
 import { eq, and, desc } from "drizzle-orm";
-import { users, payments, cryptoPayments, realAllocations, kycProfiles, activity } from "@/db/schema";
+import { users, payments, cryptoPayments, realAllocations, kycProfiles, activity, bonusGrants } from "@/db/schema";
 import type { AppDb } from "@/db/types";
 import { getTrader } from "@/lib/traders";
 import { ACCOUNT_TYPES, isAccountTypeId, type AccountTypeId } from "@/lib/accountTypes";
@@ -112,6 +112,25 @@ export async function reconcileDeposit(
 
   const [fresh] = await db.select().from(payments).where(eq(payments.checkoutRequestId, checkoutRequestId)).limit(1);
   return { ok: true, status: fresh?.status ?? "pending", creditedUsdCents: fresh?.creditedUsdCents ?? undefined };
+}
+
+/** Admin-only goodwill credit — a deliberate, logged addition to a user's
+ * real balance, spendable/allocatable/withdrawable exactly like a real
+ * deposit. Not trading P&L; see bonusGrants' module doc in schema.ts. */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export async function grantBonus(db: AppDb, userId: string, amountUsdCents: number, note?: string): Promise<Result<{}>> {
+  if (!Number.isFinite(amountUsdCents) || amountUsdCents <= 0) return fail("Enter a valid bonus amount.");
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!user) return fail("User not found.");
+
+  await db.update(users).set({ realCashCents: user.realCashCents + amountUsdCents }).where(eq(users.id, userId));
+  await db.insert(bonusGrants).values({ userId, amountCents: amountUsdCents, note });
+  await db.insert(activity).values({
+    userId,
+    text: `Received a $${(amountUsdCents / 100).toFixed(2)} bonus credited to your real balance${note ? ` — ${note}` : ""}`,
+  });
+
+  return { ok: true };
 }
 
 export async function getRealAccount(db: AppDb, userId: string) {
