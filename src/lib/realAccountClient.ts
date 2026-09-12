@@ -173,6 +173,10 @@ export const realAccount = {
     const data = await fetchJson("/api/payments/crypto/currencies");
     return (data.currencies as string[]) ?? [];
   },
+  async fxRate() {
+    const data = await fetchJson("/api/fx/rate");
+    return data.rate as number;
+  },
   async depositCrypto(amountUsd: number, payCurrency?: string) {
     const data = await fetchJson("/api/payments/crypto/initiate", { method: "POST", body: JSON.stringify({ amountUsd, payCurrency }) });
     return { providerPaymentId: data.providerPaymentId as string, payAddress: data.payAddress as string, payCurrency: data.payCurrency as string };

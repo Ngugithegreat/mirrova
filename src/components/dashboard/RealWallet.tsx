@@ -52,7 +52,8 @@ export default function RealWallet() {
 
   const [depositMethod, setDepositMethod] = useState<"mpesa" | "crypto">("mpesa");
   const [phone, setPhone] = useState("");
-  const [amountKes, setAmountKes] = useState(7000);
+  const [amountUsd, setAmountUsd] = useState(50);
+  const [kesRate, setKesRate] = useState<number | null>(null);
   const [depositBusy, setDepositBusy] = useState(false);
   const [depositMsg, setDepositMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
@@ -73,6 +74,11 @@ export default function RealWallet() {
       })
       .catch(() => setCryptoCurrencies([]));
   }, [depositMethod, cryptoCurrencies, cryptoCurrency]);
+
+  useEffect(() => {
+    if (depositMethod !== "mpesa" || kesRate != null) return;
+    realAccount.fxRate().then(setKesRate).catch(() => {});
+  }, [depositMethod, kesRate]);
 
   const [selectedSlug, setSelectedSlug] = useState("");
   const [allocBusy, setAllocBusy] = useState(false);
@@ -95,6 +101,8 @@ export default function RealWallet() {
     setDepositMsg(null);
     setDepositBusy(true);
     try {
+      const rate = kesRate ?? (await realAccount.fxRate());
+      const amountKes = Math.ceil(amountUsd * rate);
       const checkoutRequestId = await realAccount.deposit(phone, amountKes);
       setDepositMsg({ kind: "ok", text: "Check your phone and enter your M-Pesa PIN to complete the deposit…" });
       const status = await realAccount.pollDeposit(checkoutRequestId);
@@ -202,12 +210,6 @@ export default function RealWallet() {
           </div>
         </div>
 
-        <p className="panel mt-6 border-warn/30 bg-warn/5 p-4 text-sm leading-relaxed text-ink-2">
-          <strong className="text-warn">Real money.</strong> Deposits here are genuine funds, converted from KES to
-          USD and allocated in full to one strategist at a time — never a partial amount. Capital at risk; this is
-          not available in every jurisdiction.
-        </p>
-
         {real.accountType && (
           <div className="panel mt-6 p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -290,32 +292,35 @@ export default function RealWallet() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="amountKes" className="text-xs font-medium uppercase tracking-wide text-ink-3">
-                    Amount (KES, min ~KES 6,500 / $50)
+                  <label htmlFor="amountUsd" className="text-xs font-medium uppercase tracking-wide text-ink-3">
+                    Amount (USD, min $50)
                   </label>
                   <div className="mt-2 flex items-center gap-2">
-                    {[7000, 10000, 15000, 25000].map((v) => (
+                    {[50, 100, 200, 300].map((v) => (
                       <button
                         key={v}
                         type="button"
-                        onClick={() => setAmountKes(v)}
+                        onClick={() => setAmountUsd(v)}
                         className={`rounded-lg border px-3 py-1.5 text-xs transition-colors ${
-                          amountKes === v ? "border-mint/50 bg-mint/10 text-mint" : "border-line text-ink-2 hover:text-ink"
+                          amountUsd === v ? "border-mint/50 bg-mint/10 text-mint" : "border-line text-ink-2 hover:text-ink"
                         }`}
                       >
-                        {v.toLocaleString()}
+                        ${v}
                       </button>
                     ))}
                   </div>
                   <input
-                    id="amountKes"
+                    id="amountUsd"
                     type="number"
-                    min={6500}
+                    min={50}
                     step={1}
-                    value={amountKes}
-                    onChange={(e) => setAmountKes(Number(e.target.value))}
+                    value={amountUsd}
+                    onChange={(e) => setAmountUsd(Number(e.target.value))}
                     className="tnum mt-2.5 w-full rounded-xl border border-line bg-raised/60 px-4 py-3 text-lg font-semibold text-ink focus:border-mint/50 focus:outline-none"
                   />
+                  <p className="tnum mt-1.5 text-xs text-ink-3">
+                    {kesRate ? `≈ KES ${Math.ceil(amountUsd * kesRate).toLocaleString()}` : "Loading KES equivalent…"}
+                  </p>
                 </div>
 
                 {depositMsg && (
