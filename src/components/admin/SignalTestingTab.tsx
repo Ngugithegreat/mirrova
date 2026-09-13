@@ -9,6 +9,10 @@ export default function SignalTestingTab() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
+  const [blowEmail, setBlowEmail] = useState("");
+  const [blowBusy, setBlowBusy] = useState(false);
+  const [blowMsg, setBlowMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
   useEffect(() => {
     fetch("/api/admin/settings")
       .then((r) => r.json())
@@ -39,6 +43,25 @@ export default function SignalTestingTab() {
       setMsg({ kind: "err", text: err instanceof Error ? err.message : "Something went wrong." });
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function blowNow() {
+    setBlowBusy(true);
+    setBlowMsg(null);
+    try {
+      const res = await fetch("/api/admin/blow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: blowEmail }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      setBlowMsg({ kind: "ok", text: `Wiped ${blowEmail}'s illustrative equity to $0.` });
+    } catch (err) {
+      setBlowMsg({ kind: "err", text: err instanceof Error ? err.message : "Something went wrong." });
+    } finally {
+      setBlowBusy(false);
     }
   }
 
@@ -122,6 +145,36 @@ export default function SignalTestingTab() {
         Applies immediately — saving closes every currently-open illustrative position right away and opens a fresh
         one under these settings the next time an account with a real allocation is viewed.
       </p>
+
+      <div className="panel mt-8 border-neg/40 bg-neg/5 p-6">
+        <h2 className="font-display text-lg font-semibold text-neg">Blow account (illustrative)</h2>
+        <p className="mt-1.5 text-sm text-ink-2">
+          Instantly crashes a user&apos;s illustrative equity to $0 — closes their current position at a full loss
+          and inserts a synthetic wipeout trade so the crash shows up honestly in their trade history. Safe by
+          design: this never touches the user&apos;s real balance or allocated principal, only the illustrative
+          equity figure shown on Overview/Wallet — use it to see and test what a wiped-out account looks like
+          without any real money ever being at risk.
+        </p>
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <div className="flex-1">
+            <label className="text-xs font-medium uppercase tracking-wide text-ink-3">Target user email</label>
+            <input
+              value={blowEmail}
+              onChange={(e) => setBlowEmail(e.target.value)}
+              placeholder="test-user@example.com"
+              className="mt-1.5 w-full rounded-lg border border-line bg-raised/60 px-3 py-2 text-sm text-ink placeholder:text-ink-3 focus:border-neg/50 focus:outline-none"
+            />
+          </div>
+          <button
+            onClick={blowNow}
+            disabled={blowBusy || !blowEmail.trim()}
+            className="rounded-lg border border-neg/50 bg-neg/10 px-4 py-2 text-sm font-medium text-neg transition-colors disabled:opacity-50"
+          >
+            {blowBusy ? "Blowing…" : "Blow now"}
+          </button>
+        </div>
+        {blowMsg && <p className={`mt-3 text-sm ${blowMsg.kind === "ok" ? "text-mint" : "text-neg"}`}>{blowMsg.text}</p>}
+      </div>
     </div>
   );
 }

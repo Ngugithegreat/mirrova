@@ -18,7 +18,14 @@ export default function LiveOverview() {
   }
 
   const allocTrader = real.allocation ? getTrader(real.allocation.slug) : null;
-  const accountValue = real.realCashCents + (real.allocation?.amountCents ?? 0);
+  // Live illustrative equity — allocated principal plus the running total of
+  // every closed illustrative trade plus whatever's currently unrealized, so
+  // this figure actually moves as trades resolve (unlike a static principal
+  // readout). Still purely illustrative: it never changes realCashCents.
+  const equityCents = real.allocation
+    ? real.allocation.amountCents + real.engine.cumulativeRealizedPnlCents + (real.engine.open?.unrealizedPnlCents ?? 0)
+    : 0;
+  const accountValue = real.realCashCents + equityCents;
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-10 lg:px-8">
@@ -72,6 +79,27 @@ export default function LiveOverview() {
           </div>
         </div>
       </div>
+
+      {real.allocation && (
+        <div className="panel mt-4 flex items-center justify-between p-5">
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-ink-3">Illustrative equity (lifetime)</div>
+            <div className="tnum mt-1 font-display text-2xl font-semibold text-ink">{fmtMoney(equityCents / 100, 2)}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-[11px] uppercase tracking-wide text-ink-3">Since allocating</div>
+            <div
+              className={cx(
+                "tnum mt-1 text-lg font-semibold",
+                equityCents - real.allocation.amountCents >= 0 ? "text-pos" : "text-neg"
+              )}
+            >
+              {equityCents - real.allocation.amountCents >= 0 ? "+" : "−"}
+              {fmtMoney(Math.abs(equityCents - real.allocation.amountCents) / 100, 2)}
+            </div>
+          </div>
+        </div>
+      )}
 
       <h2 className="font-display mt-10 text-xl font-semibold">Real copy allocation</h2>
 

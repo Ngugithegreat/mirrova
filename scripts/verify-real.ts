@@ -14,13 +14,13 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import * as schema from "../src/db/schema";
 import { users, payments, cryptoPayments, realAllocations } from "../src/db/schema";
 import { signUp } from "../src/server/account";
 import { handleStkCallback, reconcileDeposit, getRealAccount, allocateReal, deallocateReal, grantBonus } from "../src/server/realAccount";
 import { handleCryptoIpn, reconcileCryptoDeposit } from "../src/server/cryptoDeposits";
-import { getEngineView, tickEngine, forceRolloverAllTraders } from "../src/server/copyEngine";
+import { getEngineView, tickEngine, forceRolloverAllTraders, blowIllustrativeEquity } from "../src/server/copyEngine";
 import { setWinRatePct, setRiskPct } from "../src/server/settings";
 
 let passed = 0;
@@ -348,6 +348,38 @@ async function main() {
     .from(schema.providerPositions)
     .where(and(eq(schema.providerPositions.traderSlug, "elena-vasquez"), eq(schema.providerPositions.active, true)));
   check("a fresh position opens right after the forced rollover, on the very next read", !!rolloverPosAfterReopen);
+
+  // --- admin "blow account" (illustrative-only): crashes equity to exactly
+  // $0 via a synthetic trade-history entry, WITHOUT ever touching the real
+  // balance or allocated principal ---
+  const [riskUserBefore] = await db.select().from(users).where(eq(users.id, riskUser.id));
+  const [riskAllocBefore] = await db
+    .select()
+    .from(realAllocations)
+    .where(and(eq(realAllocations.userId, riskUser.id), eq(realAllocations.active, true)));
+  const blowResult = await blowIllustrativeEquity(db, riskUser.id);
+  check("blowing illustrative equity succeeds", blowResult.ok);
+  const [{ totalAfterBlow }] = await db
+    .select({ totalAfterBlow: sql<number>`coalesce(sum(${schema.copyPositions.realizedPnlCents}), 0)` })
+    .from(schema.copyPositions)
+    .where(and(eq(schema.copyPositions.realAllocationId, riskAllocBefore.id), eq(schema.copyPositions.active, false)));
+  check(
+    "illustrative equity (principal + cumulative realized P&L) is exactly $0 after blowing",
+    riskAllocBefore.amountCents + Number(totalAfterBlow) === 0
+  );
+  const [riskUserAfter] = await db.select().from(users).where(eq(users.id, riskUser.id));
+  check("blowing illustrative equity never touches the real balance", riskUserAfter.realCashCents === riskUserBefore.realCashCents);
+  const [riskAllocAfter] = await db.select().from(realAllocations).where(eq(realAllocations.id, riskAllocBefore.id));
+  check(
+    "blowing illustrative equity never touches the allocated principal",
+    riskAllocAfter.amountCents === riskAllocBefore.amountCents
+  );
+  const [noAllocUser] = await signUp(db, "No Allocation", "noalloc@example.com", "hunter22pw").then(async (r) => {
+    if (!r.ok) throw new Error("signup failed");
+    return db.select().from(users).where(eq(users.email, "noalloc@example.com"));
+  });
+  const blowMissingUser = await blowIllustrativeEquity(db, noAllocUser.id);
+  check("blowing a user with no active real allocation is rejected", !blowMissingUser.ok);
 
   // --- stopping returns exact principal, never invents a return ---
   const stop1 = await deallocateReal(db, user.id);

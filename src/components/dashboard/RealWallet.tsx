@@ -198,6 +198,10 @@ export default function RealWallet() {
 
   const cash = real.realCashCents / 100;
   const allocTrader = real.allocation ? getTrader(real.allocation.slug) : null;
+  // Live illustrative equity — see LiveOverview.tsx for the same computation.
+  const equityCents = real.allocation
+    ? real.allocation.amountCents + real.engine.cumulativeRealizedPnlCents + (real.engine.open?.unrealizedPnlCents ?? 0)
+    : 0;
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-10 lg:px-8">
@@ -419,10 +423,20 @@ export default function RealWallet() {
                     <div className="text-xs text-ink-3">{allocTrader.strategy}</div>
                   </div>
                 </Link>
-                <div className="mt-4 border-t border-line-soft pt-4">
-                  <div className="text-[11px] uppercase tracking-wide text-ink-3">Allocated</div>
-                  <div className="tnum mt-0.5 text-xl font-semibold text-ink">
-                    {fmtMoney(real.allocation.amountCents / 100, 2)}
+                <div className="mt-4 flex items-center justify-between border-t border-line-soft pt-4">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wide text-ink-3">Allocated (principal)</div>
+                    <div className="tnum mt-0.5 text-xl font-semibold text-ink">
+                      {fmtMoney(real.allocation.amountCents / 100, 2)}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[11px] uppercase tracking-wide text-ink-3">Illustrative equity</div>
+                    <div
+                      className={`tnum mt-0.5 text-xl font-semibold ${equityCents >= real.allocation.amountCents ? "text-pos" : "text-neg"}`}
+                    >
+                      {fmtMoney(equityCents / 100, 2)}
+                    </div>
                   </div>
                 </div>
 

@@ -42,7 +42,7 @@ export type EngineClosedPosition = {
   closedAt: string | null;
 };
 
-export type EngineView = { open: EngineOpenPosition | null; recentlyClosed: EngineClosedPosition[] };
+export type EngineView = { open: EngineOpenPosition | null; recentlyClosed: EngineClosedPosition[]; cumulativeRealizedPnlCents: number };
 
 export type RealAccountState = {
   ready: boolean;
@@ -67,7 +67,7 @@ const EMPTY: RealAccountState = {
   totalDepositedUsdCents: 0,
   eligibleAccountTypes: [],
   kycStatus: "unsubmitted",
-  engine: { open: null, recentlyClosed: [] },
+  engine: { open: null, recentlyClosed: [], cumulativeRealizedPnlCents: 0 },
 };
 
 let state: RealAccountState = EMPTY;
@@ -117,7 +117,7 @@ export async function refreshRealAccount() {
       totalDepositedUsdCents: data.totalDepositedUsdCents ?? 0,
       eligibleAccountTypes: data.eligibleAccountTypes ?? [],
       kycStatus: data.kycStatus ?? "unsubmitted",
-      engine: data.engine ?? { open: null, recentlyClosed: [] },
+      engine: data.engine ?? { open: null, recentlyClosed: [], cumulativeRealizedPnlCents: 0 },
     });
   } catch {
     setState({ ...EMPTY, ready: true });

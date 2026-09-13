@@ -1,5 +1,5 @@
-import { eq, and, desc } from "drizzle-orm";
-import { providerPositions, copyPositions, realAllocations } from "@/db/schema";
+import { eq, and, desc, sql } from "drizzle-orm";
+import { providerPositions, copyPositions, realAllocations, activity } from "@/db/schema";
 import type { AppDb } from "@/db/types";
 import { getRealPrice } from "./marketData";
 import { getWinRatePct, getRiskPct } from "./settings";
@@ -22,7 +22,10 @@ import { rngFor } from "@/lib/prng";
  * testing-only mechanism, removed before any real settlement ever ships.
  */
 
-const BUCKET_MS = 15 * 60 * 1000;
+// Short on purpose — this is a testing-only engine (see module doc above),
+// and a 15-minute cycle made it impossible to actually watch a test account
+// win/lose multiple rounds in one sitting.
+const BUCKET_MS = 2 * 60 * 1000;
 // Base range at the default 50% risk dial; scaled by riskPct in
 // decidePosition so "risk" governs how big trades feel, not just how much
 // of the balance is at stake (see the sizing loop in tickTrader).
@@ -212,9 +215,12 @@ export type EngineClosedPosition = {
 
 /** For a single user's wallet view — ticks only their own trader (if they
  * have an active allocation) rather than the whole engine. */
-export async function getEngineView(db: AppDb, userId: string): Promise<{ open: EngineOpenPosition | null; recentlyClosed: EngineClosedPosition[] }> {
+export async function getEngineView(
+  db: AppDb,
+  userId: string
+): Promise<{ open: EngineOpenPosition | null; recentlyClosed: EngineClosedPosition[]; cumulativeRealizedPnlCents: number }> {
   const [alloc] = await db.select().from(realAllocations).where(and(eq(realAllocations.userId, userId), eq(realAllocations.active, true))).limit(1);
-  if (!alloc) return { open: null, recentlyClosed: [] };
+  if (!alloc) return { open: null, recentlyClosed: [], cumulativeRealizedPnlCents: 0 };
 
   await tickEngine(db, alloc.traderSlug);
 
@@ -243,7 +249,79 @@ export async function getEngineView(db: AppDb, userId: string): Promise<{ open: 
 
   const recentlyClosed = await listClosedCopyPositions(db, userId, 5);
 
-  return { open, recentlyClosed };
+  // The lifetime running total for THIS allocation — combined with its
+  // amountCents and the current open position's unrealized P&L, this is
+  // what a live "equity" figure in the UI should show, since neither
+  // "Account value" (static) nor a single closed trade in isolation ever
+  // reflects the cumulative illustrative track record.
+  const [{ total }] = await db
+    .select({ total: sql<number>`coalesce(sum(${copyPositions.realizedPnlCents}), 0)` })
+    .from(copyPositions)
+    .where(and(eq(copyPositions.realAllocationId, alloc.id), eq(copyPositions.active, false)));
+
+  return { open, recentlyClosed, cumulativeRealizedPnlCents: Number(total) };
+}
+
+/**
+ * Testing-only admin tool: crashes a user's illustrative equity (allocated
+ * amount + cumulative realized P&L + any open unrealized P&L) to exactly
+ * $0, so the team can see and test what a wiped-out account looks like end
+ * to end. THE HARD RULE STILL HOLDS: this never touches realAllocations
+ * .amountCents or users.realCashCents — it only inserts a synthetic closed
+ * copy_positions loss, the same table every other illustrative trade lands
+ * in, so it shows up honestly in the trade history rather than as a silent
+ * balance reset. Real principal is always safe and returnable.
+ */
+export async function blowIllustrativeEquity(db: AppDb, userId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const [alloc] = await db.select().from(realAllocations).where(and(eq(realAllocations.userId, userId), eq(realAllocations.active, true))).limit(1);
+  if (!alloc) return { ok: false, error: "This user has no active real allocation." };
+
+  const [openCopy] = await db
+    .select()
+    .from(copyPositions)
+    .where(and(eq(copyPositions.realAllocationId, alloc.id), eq(copyPositions.active, true)))
+    .limit(1);
+  let anchorProviderPositionId = openCopy?.providerPositionId;
+  if (openCopy) {
+    await db
+      .update(copyPositions)
+      .set({ active: false, closedAt: new Date(), realizedPnlCents: -openCopy.sizeUsdCents })
+      .where(eq(copyPositions.id, openCopy.id));
+  }
+  if (!anchorProviderPositionId) {
+    const [anyPos] = await db
+      .select({ id: providerPositions.id })
+      .from(providerPositions)
+      .where(eq(providerPositions.traderSlug, alloc.traderSlug))
+      .orderBy(desc(providerPositions.openedAt))
+      .limit(1);
+    anchorProviderPositionId = anyPos?.id;
+  }
+  if (!anchorProviderPositionId) return { ok: false, error: "No illustrative trade history yet for this trader." };
+
+  const [{ total }] = await db
+    .select({ total: sql<number>`coalesce(sum(${copyPositions.realizedPnlCents}), 0)` })
+    .from(copyPositions)
+    .where(and(eq(copyPositions.realAllocationId, alloc.id), eq(copyPositions.active, false)));
+  const currentEquity = alloc.amountCents + Number(total);
+
+  if (currentEquity > 0) {
+    await db.insert(copyPositions).values({
+      providerPositionId: anchorProviderPositionId,
+      realAllocationId: alloc.id,
+      userId,
+      sizeUsdCents: currentEquity,
+      realizedPnlCents: -currentEquity,
+      active: false,
+      closedAt: new Date(),
+    });
+  }
+  await db.insert(activity).values({
+    userId,
+    text: `Your illustrative equity was wiped out in an internal test (margin-call simulation) — this is not a real loss and your real balance is untouched.`,
+  });
+
+  return { ok: true };
 }
 
 /** Shared by getEngineView's compact widget (limit 5) and the Portfolio
