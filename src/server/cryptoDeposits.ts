@@ -84,3 +84,19 @@ export async function reconcileCryptoDeposit(
   const [fresh] = await db.select().from(cryptoPayments).where(eq(cryptoPayments.providerPaymentId, providerPaymentId)).limit(1);
   return { ok: true, status: fresh?.status ?? "pending", creditedUsdCents: fresh?.creditedUsdCents ?? undefined };
 }
+
+/** Admin-only override, mirroring realAccount.ts's forceCreditDeposit for
+ * M-Pesa — credits a stuck crypto deposit unconditionally. Refuses to touch
+ * one that's already completed. */
+export async function forceCreditCryptoDeposit(db: AppDb, providerPaymentId: string): Promise<Result<{ creditedUsdCents: number }>> {
+  const [payment] = await db.select().from(cryptoPayments).where(eq(cryptoPayments.providerPaymentId, providerPaymentId)).limit(1);
+  if (!payment) return fail("Unknown payment.");
+  if (payment.status === "completed") return fail("This deposit is already completed.");
+
+  if (payment.status === "failed") {
+    await db.update(cryptoPayments).set({ status: "pending" }).where(eq(cryptoPayments.id, payment.id));
+  }
+  await completeCryptoDeposit(db, providerPaymentId, { completed: true });
+  const [fresh] = await db.select().from(cryptoPayments).where(eq(cryptoPayments.providerPaymentId, providerPaymentId)).limit(1);
+  return { ok: true, creditedUsdCents: fresh?.creditedUsdCents ?? 0 };
+}

@@ -3,11 +3,18 @@ import TraderExplorer from "@/components/traders/TraderExplorer";
 import Auroras from "@/components/motion/Auroras";
 import Reveal from "@/components/ui/Reveal";
 import { PLATFORM_STATS } from "@/lib/traders";
+import { listAdminProviders } from "@/server/providers";
+import { getDb } from "@/db/client";
 import { fmtCount } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Copy traders" };
+// Admin-added providers must appear without a redeploy — render this page
+// per-request rather than statically, and skip it at build time (the
+// static roster's own pages don't need this — see [slug]/page.tsx).
+export const dynamic = "force-dynamic";
 
-export default function TradersPage() {
+export default async function TradersPage() {
+  const adminRows = await listAdminProviders(getDb());
   return (
     <>
       <div className="relative overflow-hidden border-b border-line-soft bg-surface/40">
@@ -22,7 +29,7 @@ export default function TradersPage() {
         </Reveal>
       </div>
       <div className="mx-auto max-w-7xl px-5 py-10 lg:px-8">
-        <TraderExplorer />
+        <TraderExplorer adminProviderRows={adminRows} />
         <p className="mt-10 text-xs leading-relaxed text-ink-3">
           Performance figures are net of fees and shown for illustration. Past performance is not a
           reliable indicator of future results. Capital at risk.

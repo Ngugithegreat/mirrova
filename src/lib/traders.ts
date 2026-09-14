@@ -87,7 +87,7 @@ type Archetype = {
   hold: [number, number];
 };
 
-const ARCHETYPES: Record<string, Archetype> = {
+export const ARCHETYPES: Record<string, Archetype> = {
   steady: { style: "Conservative", mu: 1.5, sigma: 1.6, skew: 0, risk: [2, 4], fee: [10, 15], winRate: [68, 80], hold: [12, 40] },
   balanced: { style: "Balanced", mu: 2.4, sigma: 3.2, skew: 2, risk: [4, 6], fee: [15, 20], winRate: [58, 70], hold: [4, 14] },
   aggressive: { style: "Aggressive", mu: 3.6, sigma: 6.5, skew: 6, risk: [7, 9], fee: [20, 30], winRate: [46, 60], hold: [1, 5] },
@@ -297,6 +297,61 @@ export const TRADERS: Trader[] = [
 
 export function getTrader(slug: string): Trader | undefined {
   return TRADERS.find((t) => t.slug === slug);
+}
+
+/** The flat shape an admin-added provider is stored as (src/db/schema.ts's
+ * adminProviders table, markets as a real array instead of the DB's
+ * comma-joined string). */
+export type AdminProviderInput = {
+  slug: string;
+  name: string;
+  country: string;
+  flag: string;
+  strategy: string;
+  style: RiskStyle;
+  markets: string[];
+  bio: string;
+  perfFee: number;
+  minCopy: number;
+  winRate: number;
+  verified: boolean;
+};
+
+/** Turns an admin-added provider row into a full Trader — reusing the exact
+ * same deterministic generation (genMonthly/genAllocation, seeded off the
+ * provider's own slug) the static roster uses, so its profile page, equity
+ * chart and allocation bars render identically well. A brand-new provider
+ * starts with zero copiers/AUM/trade history (honest — it hasn't traded on
+ * this platform yet) rather than inventing a track record. */
+export function traderFromAdminProvider(p: AdminProviderInput): Trader {
+  const rnd = rngFor(`admin:${p.slug}`);
+  const archKey = (Object.keys(ARCHETYPES) as (keyof typeof ARCHETYPES)[]).find((k) => ARCHETYPES[k].style === p.style) ?? "balanced";
+  const arch = ARCHETYPES[archKey];
+  const monthly = genMonthly(p.slug, arch.mu, arch.sigma, arch.skew);
+  return {
+    slug: p.slug,
+    name: p.name,
+    handle: `@${p.slug.replace(/-/g, "")}`,
+    country: p.country,
+    flag: p.flag,
+    strategy: p.strategy,
+    style: p.style,
+    markets: p.markets,
+    bio: p.bio,
+    riskScore: Math.round(between(rnd, arch.risk)),
+    copiers: 0,
+    aum: 0,
+    perfFee: p.perfFee,
+    minCopy: p.minCopy,
+    winRate: p.winRate,
+    trades: 0,
+    avgHoldDays: Math.round(between(rnd, arch.hold) * 10) / 10,
+    joined: new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" }),
+    verified: p.verified,
+    badges: ["New"],
+    monthlyReturns: monthly,
+    allocation: genAllocation(p.slug, p.markets),
+  };
 }
 
 /** Weekly equity curve (base 100) across the 24-month window, with intra-month texture. */

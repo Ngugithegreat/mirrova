@@ -13,6 +13,8 @@ import Auroras from "@/components/motion/Auroras";
 import TradeNetwork from "@/components/motion/TradeNetwork";
 import Reveal from "@/components/ui/Reveal";
 import { TRADERS, getTrader, traderStats, equitySeries } from "@/lib/traders";
+import { getTraderAny } from "@/server/providers";
+import { getDb } from "@/db/client";
 import { recentTrades } from "@/lib/trades";
 import { fmtPct, fmtCount, fmtCompact } from "@/lib/format";
 
@@ -22,7 +24,10 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const t = getTrader(slug);
+  // Static lookup first — the DB is only touched for a slug that isn't one
+  // of the pre-rendered static traders (i.e. an admin-added provider),
+  // which keeps every existing static trader page build-time DB-free.
+  const t = getTrader(slug) ?? (await getTraderAny(getDb(), slug));
   if (!t) return {};
   return {
     title: `${t.name} — ${t.strategy}`,
@@ -43,7 +48,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "po
 
 export default async function TraderPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const t = getTrader(slug);
+  const t = getTrader(slug) ?? (await getTraderAny(getDb(), slug));
   if (!t) notFound();
   const s = traderStats(t);
   const eq = equitySeries(t);

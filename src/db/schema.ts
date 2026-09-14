@@ -10,6 +10,7 @@ export const users = pgTable("users", {
   accountType: text("account_type").notNull().default("standard"), // standard | ecn | pro | swapFree — chosen at signup, switchable later
   notifyProductUpdates: boolean("notify_product_updates").notNull().default(true),
   notifySignalAlerts: boolean("notify_signal_alerts").notNull().default(true),
+  flagged: boolean("flagged").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -235,6 +236,29 @@ export const withdrawals = pgTable("withdrawals", {
   note: text("note"),
   requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+});
+
+/** An admin-added signal provider — a real, DB-backed strategist alongside
+ * the static generated roster in src/lib/traders.ts. Kept as a separate,
+ * minimal table (rather than migrating the whole static roster into
+ * Postgres) so the existing 36 seeded traders and everything derived from
+ * them stay exactly as they are; these rows are merged in at read time via
+ * src/server/providers.ts and become real, copyable strategists. */
+export const adminProviders = pgTable("admin_providers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  country: text("country").notNull(),
+  flag: text("flag").notNull().default("🏳️"),
+  strategy: text("strategy").notNull(),
+  style: text("style").notNull(), // Conservative | Balanced | Aggressive
+  markets: text("markets").notNull(), // comma-separated market names
+  bio: text("bio").notNull(),
+  perfFee: integer("perf_fee").notNull(), // % of profits
+  minCopy: integer("min_copy").notNull(), // USD
+  winRate: doublePrecision("win_rate").notNull(), // %
+  verified: boolean("verified").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 /** A single-row settings table (id is always "singleton"). Currently just

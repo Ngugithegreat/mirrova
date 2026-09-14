@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { fmtMoney, cx } from "@/lib/format";
 
 type Withdrawal = {
@@ -29,6 +29,8 @@ export default function WithdrawalsTab() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [noteOpenFor, setNoteOpenFor] = useState<string | null>(null);
+  const [note, setNote] = useState("");
 
   function load() {
     const url = filter === "all" ? "/api/admin/withdrawals" : `/api/admin/withdrawals?status=${filter}`;
@@ -43,17 +45,19 @@ export default function WithdrawalsTab() {
 
   useEffect(load, [filter]);
 
-  async function resolve(id: string, action: "pay" | "reject") {
+  async function resolve(id: string, action: "pay" | "reject", noteText?: string) {
     setBusyId(id);
     setError(null);
     try {
       const res = await fetch("/api/admin/withdrawals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, action }),
+        body: JSON.stringify({ id, action, note: noteText || undefined }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      setNoteOpenFor(null);
+      setNote("");
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -110,7 +114,8 @@ export default function WithdrawalsTab() {
             </thead>
             <tbody>
               {rows.map((w) => (
-                <tr key={w.id} className="border-b border-line-soft last:border-0">
+                <Fragment key={w.id}>
+                <tr className="border-b border-line-soft last:border-0">
                   <td className="py-3.5 pr-4">
                     <div className="font-medium text-ink">{w.user?.name ?? "—"}</div>
                     <div className="text-xs text-ink-3">{w.user?.email ?? "unknown user"}</div>
@@ -125,23 +130,48 @@ export default function WithdrawalsTab() {
                     {w.status === "pending" && (
                       <div className="flex justify-end gap-2">
                         <button
-                          onClick={() => resolve(w.id, "pay")}
+                          onClick={() => (noteOpenFor === w.id ? setNoteOpenFor(null) : (setNoteOpenFor(w.id), setNote("")))}
                           disabled={busyId === w.id}
                           className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-mint/50 hover:text-mint disabled:opacity-50"
                         >
-                          {busyId === w.id ? "…" : "Mark paid"}
-                        </button>
-                        <button
-                          onClick={() => resolve(w.id, "reject")}
-                          disabled={busyId === w.id}
-                          className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-neg/50 hover:text-neg disabled:opacity-50"
-                        >
-                          Reject
+                          {noteOpenFor === w.id ? "Cancel" : "Resolve"}
                         </button>
                       </div>
                     )}
                   </td>
                 </tr>
+                {noteOpenFor === w.id && (
+                  <tr className="border-b border-line-soft bg-raised/40 last:border-0">
+                    <td colSpan={6} className="px-4 py-4">
+                      <div className="flex flex-wrap items-end gap-3">
+                        <div className="flex-1">
+                          <label className="text-xs font-medium uppercase tracking-wide text-ink-3">Note / reference (optional)</label>
+                          <input
+                            value={note}
+                            onChange={(e) => setNote(e.target.value)}
+                            placeholder="e.g. M-Pesa confirmation code, or a reason for rejecting"
+                            className="mt-1.5 w-full rounded-lg border border-line bg-raised/60 px-3 py-2 text-sm text-ink placeholder:text-ink-3 focus:border-mint/50 focus:outline-none"
+                          />
+                        </div>
+                        <button
+                          onClick={() => resolve(w.id, "pay", note)}
+                          disabled={busyId === w.id}
+                          className="rounded-lg border border-mint/50 bg-mint/10 px-4 py-2 text-sm font-medium text-mint transition-colors disabled:opacity-50"
+                        >
+                          {busyId === w.id ? "…" : "Mark paid"}
+                        </button>
+                        <button
+                          onClick={() => resolve(w.id, "reject", note)}
+                          disabled={busyId === w.id}
+                          className="rounded-lg border border-neg/50 bg-neg/10 px-4 py-2 text-sm font-medium text-neg transition-colors disabled:opacity-50"
+                        >
+                          Reject &amp; refund
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>

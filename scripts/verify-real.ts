@@ -20,8 +20,11 @@ import { users, payments, cryptoPayments, realAllocations } from "../src/db/sche
 import { signUp } from "../src/server/account";
 import { handleStkCallback, reconcileDeposit, getRealAccount, allocateReal, deallocateReal, grantBonus } from "../src/server/realAccount";
 import { handleCryptoIpn, reconcileCryptoDeposit } from "../src/server/cryptoDeposits";
-import { getEngineView, tickEngine, forceRolloverAllTraders, blowIllustrativeEquity } from "../src/server/copyEngine";
+import { getEngineView, tickEngine, forceRolloverAllTraders, blowIllustrativeEquity, adminOpenPosition, adminClosePosition } from "../src/server/copyEngine";
 import { setWinRatePct, setRiskPct } from "../src/server/settings";
+import { forceCreditDeposit } from "../src/server/realAccount";
+import { forceCreditCryptoDeposit } from "../src/server/cryptoDeposits";
+import { createProvider } from "../src/server/providers";
 
 let passed = 0;
 let failed = 0;
@@ -408,6 +411,104 @@ async function main() {
   check("the bonus is recorded in the audit table", bonusRow?.amountCents === 2_500 && bonusRow?.note === "welcome bonus");
   const bonusBad = await grantBonus(db, freshUser.id, -100);
   check("granting a non-positive bonus is rejected", !bonusBad.ok);
+
+  // --- admin manual engine controls (open/close a position on demand) ---
+  const [manualUser] = await signUp(db, "Manual Engine Tester", "manualengine@example.com", "hunter22pw").then(async (r) => {
+    if (!r.ok) throw new Error("signup failed");
+    return db.select().from(users).where(eq(users.email, "manualengine@example.com"));
+  });
+  await db.insert(payments).values({
+    userId: manualUser.id,
+    phone: "254712345678",
+    kesCents: 1_000_000, // KES 10,000 — comfortably clears the $50 standard-account minimum
+    checkoutRequestId: "test-checkout-manual-engine",
+    status: "pending",
+  });
+  await handleStkCallback(db, "test-checkout-manual-engine", 0, "Success", "MANUALRCPT");
+  const manualAlloc = await allocateReal(db, manualUser.id, "sofia-lindqvist");
+  check("funding and allocating the manual-engine test user succeeds", manualAlloc.ok);
+
+  const openMissingTrader = await adminOpenPosition(db, "no-such-trader", "EUR/USD", "long");
+  check("admin-opening a position for an unknown trader is rejected", !openMissingTrader.ok);
+
+  const manualOpen = await adminOpenPosition(db, "sofia-lindqvist", "EUR/USD", "long");
+  check("admin manually opening a position succeeds", manualOpen.ok);
+  const [manualPos] = await db
+    .select()
+    .from(schema.providerPositions)
+    .where(and(eq(schema.providerPositions.traderSlug, "sofia-lindqvist"), eq(schema.providerPositions.active, true)));
+  check("the manually opened position has the admin-chosen instrument and side", manualPos?.instrument === "EUR/USD" && manualPos?.side === "long");
+  const [manualMirror] = await db.select().from(schema.copyPositions).where(eq(schema.copyPositions.providerPositionId, manualPos.id));
+  check("the manually opened position is immediately mirrored to the active allocation", !!manualMirror);
+
+  const openAgain = await adminOpenPosition(db, "sofia-lindqvist", "GBP/USD", "short");
+  check("admin cannot open a second position for a trader that already has one open", !openAgain.ok);
+
+  const closeUnknown = await adminClosePosition(db, "00000000-0000-0000-0000-000000000000");
+  check("admin-closing an unknown position is rejected", !closeUnknown.ok);
+
+  const manualClose = await adminClosePosition(db, manualPos.id);
+  check("admin manually closing a position succeeds", manualClose.ok);
+  const [manualPosAfter] = await db.select().from(schema.providerPositions).where(eq(schema.providerPositions.id, manualPos.id));
+  check("the manually closed position is no longer active", manualPosAfter.active === false);
+  const closeAgain = await adminClosePosition(db, manualPos.id);
+  check("admin cannot close an already-closed position again", !closeAgain.ok);
+  const [manualUserAfterClose] = await db.select().from(users).where(eq(users.id, manualUser.id));
+  check("admin manual open/close never touches the real balance", manualUserAfterClose.realCashCents === 0);
+
+  // A manually opened position also works for a brand-new admin-added provider.
+  const engineProvider = await createProvider(db, {
+    name: "Engine Test Provider",
+    country: "Kenya",
+    strategy: "Test",
+    style: "Balanced",
+    markets: ["Crypto"],
+    bio: "",
+    perfFee: 10,
+    minCopy: 50,
+    winRate: 55,
+    verified: true,
+  });
+  check("creating a provider for the engine test succeeds", engineProvider.ok);
+  if (engineProvider.ok) {
+    const openForAdminProvider = await adminOpenPosition(db, engineProvider.slug, "BTC/USD", "long");
+    check("admin can open a position for a brand-new admin-added provider", openForAdminProvider.ok);
+  }
+
+  // --- admin force-credit override for a stuck deposit ---
+  const [stuckUser] = await signUp(db, "Stuck Deposit Tester", "stuckdeposit@example.com", "hunter22pw").then(async (r) => {
+    if (!r.ok) throw new Error("signup failed");
+    return db.select().from(users).where(eq(users.email, "stuckdeposit@example.com"));
+  });
+  await db.insert(payments).values({
+    userId: stuckUser.id,
+    phone: "254712345678",
+    kesCents: 130_00,
+    checkoutRequestId: "test-checkout-stuck",
+    status: "failed",
+    resultDesc: "Timeout — provider lost the record",
+  });
+  const forceCredit = await forceCreditDeposit(db, "test-checkout-stuck");
+  check("force-crediting a stuck (failed) deposit succeeds", forceCredit.ok);
+  const [stuckUserAfter] = await db.select().from(users).where(eq(users.id, stuckUser.id));
+  check("force-crediting actually credits the real balance", stuckUserAfter.realCashCents === (forceCredit.ok ? forceCredit.creditedUsdCents : -1));
+  const forceCreditAgain = await forceCreditDeposit(db, "test-checkout-stuck");
+  check("force-crediting an already-completed deposit is rejected (no double-credit)", !forceCreditAgain.ok);
+  const forceCreditUnknown = await forceCreditDeposit(db, "no-such-checkout");
+  check("force-crediting an unknown payment is rejected", !forceCreditUnknown.ok);
+
+  await db.insert(cryptoPayments).values({
+    userId: stuckUser.id,
+    providerPaymentId: "test-crypto-stuck",
+    payCurrency: "usdttrc20",
+    priceAmountUsd: 20,
+    payAddress: "TTestAddress",
+    status: "pending",
+  });
+  const forceCreditCrypto = await forceCreditCryptoDeposit(db, "test-crypto-stuck");
+  check("force-crediting a stuck (pending) crypto deposit succeeds", forceCreditCrypto.ok);
+  const forceCreditCryptoAgain = await forceCreditCryptoDeposit(db, "test-crypto-stuck");
+  check("force-crediting an already-completed crypto deposit is rejected", !forceCreditCryptoAgain.ok);
 
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);

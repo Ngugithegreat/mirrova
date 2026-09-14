@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { getSessionUser } from "@/server/session";
 import { startCopy } from "@/server/account";
-import { getTrader } from "@/lib/traders";
+import { getTraderAny } from "@/server/providers";
 
 export async function POST(req: Request) {
   const user = await getSessionUser();
@@ -13,7 +13,8 @@ export async function POST(req: Request) {
   const amountCents = Math.round(Number(body?.amountCents));
   const stopLossPct = Math.round(Number(body?.stopLossPct));
 
-  const trader = getTrader(slug);
+  const db = getDb();
+  const trader = await getTraderAny(db, slug);
   if (!trader) return NextResponse.json({ error: "Unknown trader." }, { status: 400 });
   if (!Number.isFinite(amountCents) || amountCents <= 0) {
     return NextResponse.json({ error: "Invalid amount." }, { status: 400 });
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid stop-loss." }, { status: 400 });
   }
 
-  const result = await startCopy(getDb(), user.id, slug, amountCents, stopLossPct, trader.minCopy * 100);
+  const result = await startCopy(db, user.id, slug, amountCents, stopLossPct, trader.minCopy * 100);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   return NextResponse.json({ ok: true });
 }

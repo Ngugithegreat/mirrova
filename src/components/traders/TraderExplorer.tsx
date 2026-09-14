@@ -1,10 +1,25 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { TRADERS, traderStats, RiskStyle } from "@/lib/traders";
+import { TRADERS, traderStats, traderFromAdminProvider, RiskStyle } from "@/lib/traders";
 import TraderCard from "@/components/ui/TraderCard";
 import Reveal from "@/components/ui/Reveal";
 import { cx } from "@/lib/format";
+
+type AdminProviderRow = {
+  slug: string;
+  name: string;
+  country: string;
+  flag: string;
+  strategy: string;
+  style: string;
+  markets: string;
+  bio: string;
+  perfFee: number;
+  minCopy: number;
+  winRate: number;
+  verified: boolean;
+};
 
 type SortKey = "copiers" | "return12m" | "returnYtd" | "drawdown" | "aum";
 
@@ -19,13 +34,36 @@ const SORTS: { key: SortKey; label: string }[] = [
 const STYLES: ("All" | RiskStyle)[] = ["All", "Conservative", "Balanced", "Aggressive"];
 const MARKETS = ["All", "Stocks", "Indices", "Forex", "Crypto", "Commodities"];
 
-export default function TraderExplorer() {
+export default function TraderExplorer({ adminProviderRows = [] }: { adminProviderRows?: AdminProviderRow[] }) {
   const [query, setQuery] = useState("");
   const [style, setStyle] = useState<(typeof STYLES)[number]>("All");
   const [market, setMarket] = useState("All");
   const [sort, setSort] = useState<SortKey>("copiers");
 
-  const enriched = useMemo(() => TRADERS.map((t) => ({ t, s: traderStats(t) })), []);
+  const allTraders = useMemo(
+    () => [
+      ...TRADERS,
+      ...adminProviderRows.map((r) =>
+        traderFromAdminProvider({
+          slug: r.slug,
+          name: r.name,
+          country: r.country,
+          flag: r.flag,
+          strategy: r.strategy,
+          style: r.style as RiskStyle,
+          markets: r.markets.split(",").filter(Boolean),
+          bio: r.bio,
+          perfFee: r.perfFee,
+          minCopy: r.minCopy,
+          winRate: r.winRate,
+          verified: r.verified,
+        })
+      ),
+    ],
+    [adminProviderRows]
+  );
+
+  const enriched = useMemo(() => allTraders.map((t) => ({ t, s: traderStats(t) })), [allTraders]);
 
   const results = useMemo(() => {
     let list = enriched;

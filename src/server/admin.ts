@@ -1,12 +1,17 @@
 import { eq, and, desc, sql, or, ilike, inArray } from "drizzle-orm";
-import { users, payments, cryptoPayments, copies, realAllocations, deskPositions, withdrawals, kycProfiles } from "@/db/schema";
+import { users, payments, cryptoPayments, copies, realAllocations, deskPositions, withdrawals, kycProfiles, kycDocuments } from "@/db/schema";
 import type { AppDb } from "@/db/types";
 import { getUserAccountType, getTotalDeposited } from "./accountTypes";
-import { reconcileDeposit } from "./realAccount";
-import { reconcileCryptoDeposit } from "./cryptoDeposits";
+import { reconcileDeposit, forceCreditDeposit } from "./realAccount";
+import { reconcileCryptoDeposit, forceCreditCryptoDeposit } from "./cryptoDeposits";
 import { markWithdrawalPaid, rejectWithdrawal } from "./withdrawals";
 import type { AccountTypeId } from "@/lib/accountTypes";
-import { getTrader } from "@/lib/traders";
+import { getTraderAny } from "./providers";
+
+type Result<T> = { ok: false; error: string } | ({ ok: true } & T);
+function fail(error: string): { ok: false; error: string } {
+  return { ok: false, error };
+}
 
 const USER_LIST_LIMIT = 200;
 const ROW_LIMIT = 100;
@@ -60,6 +65,7 @@ export async function getUsersList(db: AppDb, q?: string) {
       email: users.email,
       cashCents: users.cashCents,
       realCashCents: users.realCashCents,
+      flagged: users.flagged,
       createdAt: users.createdAt,
     })
     .from(users)
@@ -84,6 +90,15 @@ export async function getUsersList(db: AppDb, q?: string) {
       .select({ n: sql<number>`count(*)` })
       .from(deskPositions)
       .where(and(eq(deskPositions.userId, u.id), eq(deskPositions.active, true)));
+    const [kyc] = await db
+      .select({ status: kycProfiles.status, fullName: kycProfiles.fullName, idNumberMasked: kycProfiles.idNumberMasked })
+      .from(kycProfiles)
+      .where(eq(kycProfiles.userId, u.id))
+      .limit(1);
+    const docs = await db
+      .select({ id: kycDocuments.id, kind: kycDocuments.kind, blobPathname: kycDocuments.blobPathname })
+      .from(kycDocuments)
+      .where(eq(kycDocuments.userId, u.id));
 
     out.push({
       ...u,
@@ -92,9 +107,19 @@ export async function getUsersList(db: AppDb, q?: string) {
       activeCopyCount: Number(activeCopyCount ?? 0),
       realAllocation: activeAlloc ?? null,
       openDeskCount: Number(openDeskCount ?? 0),
+      kyc: kyc ?? null,
+      kycDocuments: docs,
     });
   }
   return out;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export async function setUserFlagged(db: AppDb, userId: string, flagged: boolean): Promise<Result<{}>> {
+  const [user] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
+  if (!user) return fail("User not found.");
+  await db.update(users).set({ flagged }).where(eq(users.id, userId));
+  return { ok: true };
 }
 
 async function usersById(db: AppDb, ids: string[]) {
@@ -165,7 +190,7 @@ export async function getDepositsList(db: AppDb, status?: string) {
   };
 }
 
-export { reconcileDeposit, reconcileCryptoDeposit };
+export { reconcileDeposit, reconcileCryptoDeposit, forceCreditDeposit, forceCreditCryptoDeposit };
 
 export async function getWithdrawalsList(db: AppDb, status?: string) {
   const rows = await db
@@ -200,18 +225,18 @@ export async function getActivityList(db: AppDb) {
 
   const userMap = await usersById(db, [...new Set([...activeCopiesRows.map((c) => c.userId), ...activeAllocRows.map((a) => a.userId)])]);
 
-  return {
-    copies: activeCopiesRows.map((c) => ({
-      ...c,
-      user: userMap.get(c.userId) ?? null,
-      traderName: getTrader(c.traderSlug)?.name ?? c.traderSlug,
-    })),
-    realAllocations: activeAllocRows.map((a) => ({
-      ...a,
-      user: userMap.get(a.userId) ?? null,
-      traderName: getTrader(a.traderSlug)?.name ?? a.traderSlug,
-    })),
-  };
+  const copiesOut = [];
+  for (const c of activeCopiesRows) {
+    const trader = await getTraderAny(db, c.traderSlug);
+    copiesOut.push({ ...c, user: userMap.get(c.userId) ?? null, traderName: trader?.name ?? c.traderSlug });
+  }
+  const allocsOut = [];
+  for (const a of activeAllocRows) {
+    const trader = await getTraderAny(db, a.traderSlug);
+    allocsOut.push({ ...a, user: userMap.get(a.userId) ?? null, traderName: trader?.name ?? a.traderSlug });
+  }
+
+  return { copies: copiesOut, realAllocations: allocsOut };
 }
 
 export async function getDeskList(db: AppDb) {

@@ -1,7 +1,7 @@
 import { eq, and, desc } from "drizzle-orm";
 import { users, payments, cryptoPayments, realAllocations, kycProfiles, activity, bonusGrants } from "@/db/schema";
 import type { AppDb } from "@/db/types";
-import { getTrader } from "@/lib/traders";
+import { getTraderAny } from "./providers";
 import { ACCOUNT_TYPES, isAccountTypeId, type AccountTypeId } from "@/lib/accountTypes";
 import { kesToUsdCents, usdKesRate } from "./fx";
 
@@ -114,6 +114,27 @@ export async function reconcileDeposit(
   return { ok: true, status: fresh?.status ?? "pending", creditedUsdCents: fresh?.creditedUsdCents ?? undefined };
 }
 
+/** Admin-only override for a deposit that's genuinely stuck (the provider
+ * lost the record, or a reconcile keeps coming back pending/failed even
+ * though the user actually paid) — credits it unconditionally rather than
+ * trusting the provider's status one more time. Refuses to touch a deposit
+ * that's already completed, so it can never double-credit. */
+export async function forceCreditDeposit(db: AppDb, checkoutRequestId: string): Promise<Result<{ creditedUsdCents: number }>> {
+  const [payment] = await db.select().from(payments).where(eq(payments.checkoutRequestId, checkoutRequestId)).limit(1);
+  if (!payment) return fail("Unknown payment.");
+  if (payment.status === "completed") return fail("This deposit is already completed.");
+
+  // completeDeposit only acts on a "pending" row (its guard against
+  // double-crediting) — a "failed" deposit needs reopening first so the
+  // same idempotent completion path can run instead of silently no-op'ing.
+  if (payment.status === "failed") {
+    await db.update(payments).set({ status: "pending" }).where(eq(payments.id, payment.id));
+  }
+  await completeDeposit(db, checkoutRequestId, { resultCode: 0, resultDesc: "Manually credited by admin" });
+  const [fresh] = await db.select().from(payments).where(eq(payments.checkoutRequestId, checkoutRequestId)).limit(1);
+  return { ok: true, creditedUsdCents: fresh?.creditedUsdCents ?? 0 };
+}
+
 /** Admin-only goodwill credit — a deliberate, logged addition to a user's
  * real balance, spendable/allocatable/withdrawable exactly like a real
  * deposit. Not trading P&L; see bonusGrants' module doc in schema.ts. */
@@ -190,7 +211,7 @@ export async function switchAccountType(db: AppDb, userId: string, accountTypeId
  * up front (see server/realAccount.ts module doc), not an oversight. */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export async function allocateReal(db: AppDb, userId: string, traderSlug: string): Promise<Result<{}>> {
-  if (!getTrader(traderSlug)) return fail("Unknown trader.");
+  if (!(await getTraderAny(db, traderSlug))) return fail("Unknown trader.");
 
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user) return fail("Not signed in.");

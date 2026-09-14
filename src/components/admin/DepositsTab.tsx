@@ -44,14 +44,17 @@ export default function DepositsTab() {
 
   useEffect(load, [filter]);
 
-  async function reconcile(method: "mpesa" | "crypto", detail: string) {
+  async function act(method: "mpesa" | "crypto", detail: string, action: "reconcile" | "credit") {
+    if (action === "credit" && !window.confirm("Manually credit this deposit? Only do this if you've independently confirmed the payment actually arrived.")) {
+      return;
+    }
     setBusyId(detail);
     setError(null);
     try {
       const res = await fetch("/api/admin/deposits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ method, detail }),
+        body: JSON.stringify({ method, detail, action }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Something went wrong.");
@@ -129,14 +132,25 @@ export default function DepositsTab() {
                   </td>
                   <td className="py-3.5 pr-4 text-xs text-ink-3">{new Date(d.createdAt).toLocaleString()}</td>
                   <td className="py-3.5 text-right">
-                    {d.status === "pending" && (
-                      <button
-                        onClick={() => reconcile(d.method, d.detail)}
-                        disabled={busyId === d.detail}
-                        className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-mint/50 hover:text-mint disabled:opacity-50"
-                      >
-                        {busyId === d.detail ? "Checking…" : "Reconcile"}
-                      </button>
+                    {d.status !== "completed" && (
+                      <div className="flex justify-end gap-2">
+                        {d.status === "pending" && (
+                          <button
+                            onClick={() => act(d.method, d.detail, "reconcile")}
+                            disabled={busyId === d.detail}
+                            className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-mint/50 hover:text-mint disabled:opacity-50"
+                          >
+                            {busyId === d.detail ? "Checking…" : "Reconcile"}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => act(d.method, d.detail, "credit")}
+                          disabled={busyId === d.detail}
+                          className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-warn/50 hover:text-warn disabled:opacity-50"
+                        >
+                          Credit
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>

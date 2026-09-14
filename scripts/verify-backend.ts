@@ -32,6 +32,8 @@ import { getTrader } from "../src/lib/traders";
 import { getAccountType } from "../src/lib/accountTypes";
 import { verifyAdminPassword, createAdminCookieValue, verifyAdminCookieValue, sign } from "../src/server/adminAuth";
 import { submitKyc, getKycStatus, reviewKyc } from "../src/server/kyc";
+import { createProvider, getTraderAny, listAllTraders } from "../src/server/providers";
+import { setUserFlagged } from "../src/server/admin";
 
 let passed = 0;
 let failed = 0;
@@ -459,6 +461,93 @@ async function main() {
   check("a reset never touches realCashCents", afterReset.realCashCents === beforeReset.realCashCents);
   const activeCopiesAfterReset = await db.select().from(schema.copies).where(and(eq(schema.copies.userId, alex.id), eq(schema.copies.active, true)));
   check("resetting stops every active demo copy", activeCopiesAfterReset.length === 0);
+
+  // --- admin-added providers ---
+  const staticLookup = await getTraderAny(db, "daniel-kim");
+  check("getTraderAny finds a static trader without needing a DB row", staticLookup?.name === "Daniel Kim");
+  const missingLookup = await getTraderAny(db, "no-such-trader");
+  check("getTraderAny returns undefined for a genuinely unknown slug", missingLookup === undefined);
+
+  const badProvider = await createProvider(db, {
+    name: "T",
+    country: "Kenya",
+    strategy: "Test",
+    style: "Balanced",
+    markets: ["Forex"],
+    bio: "",
+    perfFee: 15,
+    minCopy: 50,
+    winRate: 55,
+    verified: true,
+  });
+  check("a too-short provider name is rejected", !badProvider.ok);
+
+  const newProvider = await createProvider(db, {
+    name: "Test Strategist",
+    country: "Kenya",
+    strategy: "Test Strategy",
+    style: "Balanced",
+    markets: ["Forex", "Indices"],
+    bio: "A provider added via the admin console.",
+    perfFee: 15,
+    minCopy: 50,
+    winRate: 55,
+    verified: true,
+  });
+  check("creating a valid admin provider succeeds", newProvider.ok);
+  const providerSlug = newProvider.ok ? newProvider.slug : "";
+  check("the new provider's slug is derived from its name", providerSlug === "test-strategist");
+
+  const foundNew = await getTraderAny(db, providerSlug);
+  check("getTraderAny finds the newly created admin provider", foundNew?.name === "Test Strategist");
+  check("a brand-new admin provider starts with zero copiers/AUM (no invented track record)", foundNew?.copiers === 0 && foundNew?.aum === 0);
+
+  const dupeProvider = await createProvider(db, {
+    name: "Test Strategist",
+    country: "Kenya",
+    strategy: "Test Strategy",
+    style: "Balanced",
+    markets: ["Forex"],
+    bio: "",
+    perfFee: 15,
+    minCopy: 50,
+    winRate: 55,
+    verified: true,
+  });
+  check("creating a second provider with the same name gets a de-duplicated slug", dupeProvider.ok && dupeProvider.slug === "test-strategist-2");
+
+  const clashesWithStatic = await createProvider(db, {
+    name: "Daniel Kim",
+    country: "Kenya",
+    strategy: "Clash",
+    style: "Balanced",
+    markets: ["Forex"],
+    bio: "",
+    perfFee: 15,
+    minCopy: 50,
+    winRate: 55,
+    verified: true,
+  });
+  check("a name colliding with a static trader's slug is also de-duplicated, not silently merged", clashesWithStatic.ok && clashesWithStatic.slug === "daniel-kim-2");
+
+  const merged = await listAllTraders(db);
+  check("listAllTraders includes both the static roster and admin-added providers", merged.some((t) => t.slug === providerSlug) && merged.some((t) => t.slug === "daniel-kim"));
+
+  // A copy against an admin-added provider must be accepted exactly like a static one.
+  const copyAdminProvider = await startCopy(db, alex.id, providerSlug, 5_000, 20, 50);
+  check("starting a demo copy against an admin-added provider succeeds", copyAdminProvider.ok);
+  const stopAdminProviderCopy = await stopCopy(db, alex.id, providerSlug);
+  check("stopping a copy on an admin-added provider settles correctly (perfFee resolved via getTraderAny)", stopAdminProviderCopy.ok);
+
+  // --- admin flag toggle ---
+  const flagOn = await setUserFlagged(db, alex.id, true);
+  check("flagging a user succeeds", flagOn.ok);
+  const [flaggedUser] = await db.select().from(users).where(eq(users.id, alex.id));
+  check("the user row reflects the flag", flaggedUser.flagged === true);
+  const flagOff = await setUserFlagged(db, alex.id, false);
+  check("un-flagging a user succeeds", flagOff.ok);
+  const flagUnknown = await setUserFlagged(db, "00000000-0000-0000-0000-000000000000", true);
+  check("flagging an unknown user is rejected", !flagUnknown.ok);
 
   // --- logout ---
   await logOut(db, s1.token);

@@ -3,7 +3,7 @@ import { users, sessions, copies, activity } from "@/db/schema";
 import type { AppDb } from "@/db/types";
 import { hashPassword, verifyPassword, newSessionToken, hashToken } from "./auth";
 import { computeCopyValueCents } from "@/lib/copyValue";
-import { getTrader } from "@/lib/traders";
+import { getTraderAny } from "./providers";
 import { getUserAccountType } from "./accountTypes";
 import { getAccountType, type AccountTypeId } from "@/lib/accountTypes";
 
@@ -160,7 +160,7 @@ export async function stopCopy(db: AppDb, userId: string, traderSlug: string): P
     startedAt: copy.startedAt,
   });
 
-  const trader = getTrader(copy.traderSlug);
+  const trader = await getTraderAny(db, copy.traderSlug);
   const profitCents = Math.max(0, grossValueCents - copy.amountCents);
   const feeCents = profitCents > 0 && trader ? Math.round((profitCents * trader.perfFee) / 100) : 0;
   const valueCents = grossValueCents - feeCents;

@@ -3,8 +3,13 @@ import { providerPositions, copyPositions, realAllocations, activity } from "@/d
 import type { AppDb } from "@/db/types";
 import { getRealPrice } from "./marketData";
 import { getWinRatePct, getRiskPct } from "./settings";
-import { getTrader } from "@/lib/traders";
+import { getTraderAny, listAllTraders } from "./providers";
 import { rngFor } from "@/lib/prng";
+
+type Result<T> = { ok: false; error: string } | ({ ok: true } & T);
+function fail(error: string): { ok: false; error: string } {
+  return { ok: false, error };
+}
 
 /**
  * Illustrative-only trade-execution engine: opens/closes a "current trade"
@@ -32,7 +37,7 @@ const BUCKET_MS = 2 * 60 * 1000;
 const MIN_MOVE_MAGNITUDE = 0.01;
 const MOVE_MAGNITUDE_RANGE = 0.04; // 1%-5% base designed move
 
-const CATEGORY_INSTRUMENTS: Record<string, string[]> = {
+export const CATEGORY_INSTRUMENTS: Record<string, string[]> = {
   Stocks: ["AAPL"],
   Crypto: ["BTC/USD", "ETH/USD"],
   Forex: ["EUR/USD", "GBP/USD", "USD/JPY"],
@@ -67,7 +72,7 @@ async function currentInterpolatedPrice(pos: typeof providerPositions.$inferSele
 }
 
 async function decidePosition(db: AppDb, traderSlug: string, bucket: number, riskPct: number) {
-  const trader = getTrader(traderSlug);
+  const trader = await getTraderAny(db, traderSlug);
   const rnd = rngFor(`engine:${traderSlug}:${bucket}`);
   const markets = trader?.markets ?? ["Indices"];
   const market = markets[Math.floor(rnd() * markets.length)] ?? "Indices";
@@ -123,6 +128,39 @@ export async function forceRolloverAllTraders(db: AppDb) {
   for (const pos of openPositions) await closeActivePosition(db, pos);
 }
 
+/** Mirrors an open provider position into every active real allocation for
+ * its trader that doesn't yet have a copy on it — covers both a freshly
+ * opened position (all of them are "missing") and a user allocating
+ * mid-trade (joins at the current price). Shared by the automatic bucket-
+ * rollover path and the admin's manual "open a position" action. */
+async function mirrorPosition(db: AppDb, active: typeof providerPositions.$inferSelect, riskPct: number) {
+  const activeAllocations = await db
+    .select()
+    .from(realAllocations)
+    .where(and(eq(realAllocations.traderSlug, active.traderSlug), eq(realAllocations.active, true)));
+  if (activeAllocations.length === 0) return;
+
+  const existingCopies = await db
+    .select({ realAllocationId: copyPositions.realAllocationId })
+    .from(copyPositions)
+    .where(and(eq(copyPositions.providerPositionId, active.id), eq(copyPositions.active, true)));
+  const covered = new Set(existingCopies.map((c) => c.realAllocationId));
+  const missing = activeAllocations.filter((a) => !covered.has(a.id));
+  if (missing.length === 0) return;
+
+  // Admin-controlled: how much of the allocation each trade risks (position
+  // size), so testing can make P&L clearly visible instead of the old
+  // fixed 10-25% band, which barely moved a small test balance.
+  const targetFraction = Math.min(1, Math.max(0.01, riskPct / 100));
+  for (const alloc of missing) {
+    const rnd = rngFor(`engine-size:${alloc.id}:${active.id}`);
+    // ±15% jitter around the target so trades aren't perfectly identical.
+    const fraction = Math.min(1, Math.max(0.01, targetFraction * (0.85 + rnd() * 0.3)));
+    const sizeUsdCents = Math.max(1, Math.round(alloc.amountCents * fraction));
+    await db.insert(copyPositions).values({ providerPositionId: active.id, realAllocationId: alloc.id, userId: alloc.userId, sizeUsdCents });
+  }
+}
+
 /** Idempotent: whichever request discovers a bucket boundary first performs
  * the transition; every concurrent request derives the same decision for
  * that bucket from the same deterministic seed. */
@@ -130,8 +168,8 @@ async function tickTrader(db: AppDb, traderSlug: string) {
   const now = Date.now();
   const bucket = Math.floor(now / BUCKET_MS);
   // Fetched once and reused for both the designed price-move magnitude
-  // (decidePosition, below) and position sizing (the missing-allocations
-  // loop) — a single admin dial controls both.
+  // (decidePosition, below) and position sizing (mirrorPosition) — a single
+  // admin dial controls both.
   const riskPct = await getRiskPct(db);
 
   let active: typeof providerPositions.$inferSelect | undefined = (
@@ -147,40 +185,69 @@ async function tickTrader(db: AppDb, traderSlug: string) {
     active = undefined;
   }
 
-  const activeAllocations = await db
-    .select()
-    .from(realAllocations)
-    .where(and(eq(realAllocations.traderSlug, traderSlug), eq(realAllocations.active, true)));
-
   if (!active) {
+    const activeAllocations = await db
+      .select({ id: realAllocations.id })
+      .from(realAllocations)
+      .where(and(eq(realAllocations.traderSlug, traderSlug), eq(realAllocations.active, true)));
     if (activeAllocations.length === 0) return; // nobody allocated to this trader — nothing to mirror
     const { instrument, side, entryPrice, plannedClosePrice } = await decidePosition(db, traderSlug, bucket, riskPct);
     [active] = await db.insert(providerPositions).values({ traderSlug, instrument, side, entryPrice, plannedClosePrice, bucket }).returning();
   }
 
-  // Mirror any allocation that doesn't yet have a copy on the currently
-  // open position — covers both a freshly opened position (all of them are
-  // "missing") and a user allocating mid-trade (joins at the current price).
-  const existingCopies = await db
-    .select({ realAllocationId: copyPositions.realAllocationId })
-    .from(copyPositions)
-    .where(and(eq(copyPositions.providerPositionId, active.id), eq(copyPositions.active, true)));
-  const covered = new Set(existingCopies.map((c) => c.realAllocationId));
-  const missing = activeAllocations.filter((a) => !covered.has(a.id));
+  await mirrorPosition(db, active, riskPct);
+}
 
-  if (missing.length > 0) {
-    // Admin-controlled: how much of the allocation each trade risks (position
-    // size), so testing can make P&L clearly visible instead of the old
-    // fixed 10-25% band, which barely moved a small test balance.
-    const targetFraction = Math.min(1, Math.max(0.01, riskPct / 100));
-    for (const alloc of missing) {
-      const rnd = rngFor(`engine-size:${alloc.id}:${active.id}`);
-      // ±15% jitter around the target so trades aren't perfectly identical.
-      const fraction = Math.min(1, Math.max(0.01, targetFraction * (0.85 + rnd() * 0.3)));
-      const sizeUsdCents = Math.max(1, Math.round(alloc.amountCents * fraction));
-      await db.insert(copyPositions).values({ providerPositionId: active.id, realAllocationId: alloc.id, userId: alloc.userId, sizeUsdCents });
-    }
-  }
+/** Admin-only: manually opens a position for a trader right now, on a
+ * chosen instrument/side, instead of waiting for the automatic bucket
+ * rollover to pick one at random. The destined outcome is still drawn from
+ * the same admin-configured win-rate/risk dials as every other position —
+ * this only fixes the instrument/side/timing, not the settlement math.
+ * Mirrors immediately into every active real allocation on that trader. */
+export async function adminOpenPosition(
+  db: AppDb,
+  traderSlug: string,
+  instrument: string,
+  side: "long" | "short"
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+): Promise<Result<{}>> {
+  const trader = await getTraderAny(db, traderSlug);
+  if (!trader) return fail("Unknown trader.");
+
+  const [existing] = await db
+    .select({ id: providerPositions.id })
+    .from(providerPositions)
+    .where(and(eq(providerPositions.traderSlug, traderSlug), eq(providerPositions.active, true)))
+    .limit(1);
+  if (existing) return fail("This trader already has an open position — close it first.");
+
+  const bucket = Math.floor(Date.now() / BUCKET_MS);
+  const riskPct = await getRiskPct(db);
+  const winRatePct = await getWinRatePct(db);
+  const entryPrice = await getRealPrice(instrument);
+  const rnd = rngFor(`admin-open:${traderSlug}:${Date.now()}`);
+  const designedWin = rnd() < winRatePct / 100;
+  const riskScale = riskPct / 50;
+  const magnitude = (MIN_MOVE_MAGNITUDE + rnd() * MOVE_MAGNITUDE_RANGE) * riskScale;
+  const priceDelta = (side === "long") === designedWin ? magnitude : -magnitude;
+  const plannedClosePrice = entryPrice * (1 + priceDelta);
+
+  const [active] = await db
+    .insert(providerPositions)
+    .values({ traderSlug, instrument, side, entryPrice, plannedClosePrice, bucket })
+    .returning();
+  await mirrorPosition(db, active, riskPct);
+  return { ok: true };
+}
+
+/** Admin-only: closes a specific open position right now (rather than
+ * waiting for its bucket to roll over), settling every mirror on it. */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export async function adminClosePosition(db: AppDb, positionId: string): Promise<Result<{}>> {
+  const [pos] = await db.select().from(providerPositions).where(eq(providerPositions.id, positionId)).limit(1);
+  if (!pos || !pos.active) return fail("Position not found or already closed.");
+  await closeActivePosition(db, pos);
+  return { ok: true };
 }
 
 /** Ticks one trader, or every trader with at least one active real
@@ -347,8 +414,11 @@ export async function listClosedCopyPositions(db: AppDb, userId: string, limit =
   return out;
 }
 
-/** Read-only admin view across every trader — no manual open/close controls
- * since ticking is fully automatic. */
+/** Admin view across every trader — ticks the automatic engine on read (as
+ * before) but also carries everything the admin UI needs for manual
+ * open/close controls: the full trader roster (static + admin-added) to
+ * pick from, and per-position ids so a specific open position can be
+ * closed early. */
 export async function getEngineAdminView(db: AppDb) {
   await tickEngine(db);
 
@@ -364,9 +434,10 @@ export async function getEngineAdminView(db: AppDb) {
     const out = [];
     for (const pos of rows) {
       const copies = await db.select().from(copyPositions).where(eq(copyPositions.providerPositionId, pos.id));
+      const trader = await getTraderAny(db, pos.traderSlug);
       out.push({
         ...pos,
-        traderName: getTrader(pos.traderSlug)?.name ?? pos.traderSlug,
+        traderName: trader?.name ?? pos.traderSlug,
         copierCount: copies.length,
         totalMirroredCents: copies.reduce((s, c) => s + c.sizeUsdCents, 0),
       });
@@ -374,5 +445,10 @@ export async function getEngineAdminView(db: AppDb) {
     return out;
   }
 
-  return { open: await withCopyStats(openRows), closed: await withCopyStats(closedRows) };
+  const traders = await listAllTraders(db);
+  return {
+    open: await withCopyStats(openRows),
+    closed: await withCopyStats(closedRows),
+    traders: traders.map((t) => ({ slug: t.slug, name: t.name, markets: t.markets })),
+  };
 }
