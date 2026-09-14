@@ -1,0 +1,21 @@
+name: Illustrative engine heartbeat
+
+# Pokes the illustrative copy engine every 5 minutes so it keeps generating
+# real-price-based trades on its own clock for multi-day observation,
+# instead of only advancing when someone happens to load a page (this
+# stack has no other cron). Never touches any real balance — see
+# src/app/api/cron/tick/route.ts and the hard rule in copyEngine.ts.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tick the engine
+        run: |
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_TICK_SECRET }}" \
+            https://asporttraders.com/api/cron/tick
