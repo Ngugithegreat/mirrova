@@ -3,26 +3,22 @@
 import { useState } from "react";
 import { LogoMark } from "@/components/ui/Logo";
 import { cx } from "@/lib/format";
-import OverviewTab from "./OverviewTab";
 import UsersTab from "./UsersTab";
 import DepositsTab from "./DepositsTab";
 import WithdrawalsTab from "./WithdrawalsTab";
-import ActivityTab from "./ActivityTab";
-import DeskTab from "./DeskTab";
-import KycTab from "./KycTab";
 import EngineTab from "./EngineTab";
-import SignalTestingTab from "./SignalTestingTab";
 
+// Exactly 4 sections — matching PrimeStone's own admin layout: Users,
+// Copy engine, Deposits, Withdrawals. Everything that used to be its own
+// tab (KYC review, testing dials/blow tools, copy activity, the Desk
+// monitor, an overview stat grid) now lives inside one of these four —
+// KYC review moved into the Users drawer, and copy activity/Desk/testing
+// tools are sections inside Copy engine (see EngineTab.tsx).
 const TABS = [
-  { key: "overview", label: "Overview", icon: "grid" },
   { key: "users", label: "Users", icon: "users" },
+  { key: "engine", label: "Copy engine", icon: "chart" },
   { key: "deposits", label: "Deposits", icon: "download" },
   { key: "withdrawals", label: "Withdrawals", icon: "upload" },
-  { key: "kyc", label: "KYC", icon: "shield" },
-  { key: "activity", label: "Copy activity", icon: "pulse" },
-  { key: "desk", label: "Desk", icon: "bars" },
-  { key: "engine", label: "Trade engine", icon: "chart" },
-  { key: "signals", label: "Signal testing", icon: "gear" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -30,15 +26,6 @@ type TabKey = (typeof TABS)[number]["key"];
 function TabIcon({ name, className }: { name: (typeof TABS)[number]["icon"]; className?: string }) {
   const common = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.6, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   switch (name) {
-    case "grid":
-      return (
-        <svg className={className} {...common}>
-          <rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1.5" />
-          <rect x="13" y="3.5" width="7.5" height="7.5" rx="1.5" />
-          <rect x="3.5" y="13" width="7.5" height="7.5" rx="1.5" />
-          <rect x="13" y="13" width="7.5" height="7.5" rx="1.5" />
-        </svg>
-      );
     case "users":
       return (
         <svg className={className} {...common}>
@@ -62,25 +49,6 @@ function TabIcon({ name, className }: { name: (typeof TABS)[number]["icon"]; cla
           <path d="M4 4.5h16" />
         </svg>
       );
-    case "shield":
-      return (
-        <svg className={className} {...common}>
-          <path d="M12 3.5l7 2.8v5.4c0 4.4-2.9 7.9-7 9.3-4.1-1.4-7-4.9-7-9.3V6.3z" />
-          <path d="M8.8 12.2l2.1 2.1 4.3-4.3" />
-        </svg>
-      );
-    case "pulse":
-      return (
-        <svg className={className} {...common}>
-          <path d="M3 12h4l2.5-6 3 12 2.5-8 1.5 2H21" />
-        </svg>
-      );
-    case "bars":
-      return (
-        <svg className={className} {...common}>
-          <path d="M4 20V13M11.5 20V4M19 20v-9" />
-        </svg>
-      );
     case "chart":
       return (
         <svg className={className} {...common}>
@@ -88,18 +56,11 @@ function TabIcon({ name, className }: { name: (typeof TABS)[number]["icon"]; cla
           <path d="M14 6.5h4.5V11" />
         </svg>
       );
-    case "gear":
-      return (
-        <svg className={className} {...common}>
-          <circle cx="12" cy="12" r="3.2" />
-          <path d="M12 3.5v2.3M12 18.2v2.3M20.5 12h-2.3M5.8 12H3.5M17.7 6.3l-1.6 1.6M7.9 16.1l-1.6 1.6M17.7 17.7l-1.6-1.6M7.9 7.9 6.3 6.3" />
-        </svg>
-      );
   }
 }
 
 export default function AdminConsole() {
-  const [tab, setTab] = useState<TabKey>("overview");
+  const [tab, setTab] = useState<TabKey>("users");
   const [loggingOut, setLoggingOut] = useState(false);
 
   async function logout() {
@@ -153,15 +114,10 @@ export default function AdminConsole() {
         </div>
 
         <div>
-          {tab === "overview" && <OverviewTab />}
           {tab === "users" && <UsersTab />}
+          {tab === "engine" && <EngineTab />}
           {tab === "deposits" && <DepositsTab />}
           {tab === "withdrawals" && <WithdrawalsTab />}
-          {tab === "kyc" && <KycTab />}
-          {tab === "activity" && <ActivityTab />}
-          {tab === "desk" && <DeskTab />}
-          {tab === "engine" && <EngineTab />}
-          {tab === "signals" && <SignalTestingTab />}
         </div>
       </main>
     </div>

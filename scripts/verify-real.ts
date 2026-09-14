@@ -20,8 +20,8 @@ import { users, payments, cryptoPayments, realAllocations } from "../src/db/sche
 import { signUp } from "../src/server/account";
 import { handleStkCallback, reconcileDeposit, getRealAccount, allocateReal, deallocateReal, grantBonus } from "../src/server/realAccount";
 import { handleCryptoIpn, reconcileCryptoDeposit } from "../src/server/cryptoDeposits";
-import { getEngineView, tickEngine, forceRolloverAllTraders, blowIllustrativeEquity, adminOpenPosition, adminClosePosition } from "../src/server/copyEngine";
-import { setWinRatePct, setRiskPct } from "../src/server/settings";
+import { getEngineView, tickEngine, forceRolloverAllTraders, blowIllustrativeEquity, adminOpenPosition, adminClosePosition, blowAllIllustrativeEquity, checkScheduledBlows } from "../src/server/copyEngine";
+import { setWinRatePct, setRiskPct, setBlowSchedule, getBlowSchedule, clearBlowSchedule, setAutoBlowDays, getAutoBlowDays } from "../src/server/settings";
 import { forceCreditDeposit } from "../src/server/realAccount";
 import { forceCreditCryptoDeposit } from "../src/server/cryptoDeposits";
 import { createProvider } from "../src/server/providers";
@@ -509,6 +509,120 @@ async function main() {
   check("force-crediting a stuck (pending) crypto deposit succeeds", forceCreditCrypto.ok);
   const forceCreditCryptoAgain = await forceCreditCryptoDeposit(db, "test-crypto-stuck");
   check("force-crediting an already-completed crypto deposit is rejected", !forceCreditCryptoAgain.ok);
+
+  // --- testing tools: scheduled blow / auto-blow (Copy engine tab consolidation) ---
+  const [blowUserA] = await signUp(db, "Blow Schedule A", "blowa@example.com", "hunter22pw").then(async (r) => {
+    if (!r.ok) throw new Error("signup failed");
+    return db.select().from(users).where(eq(users.email, "blowa@example.com"));
+  });
+  const [blowUserB] = await signUp(db, "Blow Schedule B", "blowb@example.com", "hunter22pw").then(async (r) => {
+    if (!r.ok) throw new Error("signup failed");
+    return db.select().from(users).where(eq(users.email, "blowb@example.com"));
+  });
+  for (const u of [blowUserA, blowUserB]) {
+    await db.insert(payments).values({
+      userId: u.id,
+      phone: "254712345678",
+      kesCents: 1_000_000,
+      checkoutRequestId: `test-checkout-${u.id}`,
+      status: "pending",
+    });
+    await handleStkCallback(db, `test-checkout-${u.id}`, 0, "Success", "RCPT");
+    await allocateReal(db, u.id, "isabella-rossi");
+  }
+
+  const [{ totalBBefore }] = await db
+    .select({ totalBBefore: sql<number>`coalesce(sum(${schema.copyPositions.realizedPnlCents}), 0)` })
+    .from(schema.copyPositions)
+    .where(eq(schema.copyPositions.userId, blowUserB.id));
+
+  const blowOne = await blowAllIllustrativeEquity(db, "blowa@example.com");
+  check("blowAllIllustrativeEquity(email) blows exactly one matching user", blowOne.blown === 1);
+  const [{ totalA }] = await db
+    .select({ totalA: sql<number>`coalesce(sum(${schema.copyPositions.realizedPnlCents}), 0)` })
+    .from(schema.copyPositions)
+    .where(eq(schema.copyPositions.userId, blowUserA.id));
+  const [allocA] = await db.select().from(realAllocations).where(eq(realAllocations.userId, blowUserA.id));
+  check("the targeted user's illustrative equity is now $0", allocA.amountCents + Number(totalA) === 0);
+  const [{ totalBAfter }] = await db
+    .select({ totalBAfter: sql<number>`coalesce(sum(${schema.copyPositions.realizedPnlCents}), 0)` })
+    .from(schema.copyPositions)
+    .where(eq(schema.copyPositions.userId, blowUserB.id));
+  check("blowing one user by email never touches a different user", Number(totalBBefore) === Number(totalBAfter));
+
+  const blowAll = await blowAllIllustrativeEquity(db);
+  check("blowAllIllustrativeEquity() with no email blows every remaining active allocation", blowAll.blown >= 1);
+  const [{ totalB }] = await db
+    .select({ totalB: sql<number>`coalesce(sum(${schema.copyPositions.realizedPnlCents}), 0)` })
+    .from(schema.copyPositions)
+    .where(eq(schema.copyPositions.userId, blowUserB.id));
+  const [allocB] = await db.select().from(realAllocations).where(eq(realAllocations.userId, blowUserB.id));
+  check("blow-all also wiped the second user's illustrative equity to $0", allocB.amountCents + Number(totalB) === 0);
+  const [userBAfterBlow] = await db.select().from(users).where(eq(users.id, blowUserB.id));
+  check("blow-all never touches real balances", userBAfterBlow.realCashCents === 0);
+
+  // Scheduled blow: due immediately (at = now - 1000ms) should fire the next time checkScheduledBlows runs.
+  const [scheduleUser] = await signUp(db, "Blow Schedule C", "blowc@example.com", "hunter22pw").then(async (r) => {
+    if (!r.ok) throw new Error("signup failed");
+    return db.select().from(users).where(eq(users.email, "blowc@example.com"));
+  });
+  await db.insert(payments).values({
+    userId: scheduleUser.id,
+    phone: "254712345678",
+    kesCents: 1_000_000,
+    checkoutRequestId: `test-checkout-${scheduleUser.id}`,
+    status: "pending",
+  });
+  await handleStkCallback(db, `test-checkout-${scheduleUser.id}`, 0, "Success", "RCPT");
+  await allocateReal(db, scheduleUser.id, "isabella-rossi");
+
+  await setBlowSchedule(db, Date.now() - 1000, "blowc@example.com");
+  const scheduleBefore = await getBlowSchedule(db);
+  check("a scheduled blow is recorded with its target email", scheduleBefore?.email === "blowc@example.com");
+  await checkScheduledBlows(db);
+  const [{ totalC }] = await db
+    .select({ totalC: sql<number>`coalesce(sum(${schema.copyPositions.realizedPnlCents}), 0)` })
+    .from(schema.copyPositions)
+    .where(eq(schema.copyPositions.userId, scheduleUser.id));
+  const [allocC] = await db.select().from(realAllocations).where(eq(realAllocations.userId, scheduleUser.id));
+  check("a due scheduled blow fires the next time the engine is checked", allocC.amountCents + Number(totalC) === 0);
+  const scheduleAfter = await getBlowSchedule(db);
+  check("a fired scheduled blow clears itself", scheduleAfter === null);
+
+  await setBlowSchedule(db, Date.now() + 60_000, null);
+  await clearBlowSchedule(db);
+  check("cancelling a scheduled blow clears it", (await getBlowSchedule(db)) === null);
+
+  // Auto-blow: an allocation older than the configured window gets blown on the next check.
+  const [agedUser] = await signUp(db, "Aged Allocation", "aged@example.com", "hunter22pw").then(async (r) => {
+    if (!r.ok) throw new Error("signup failed");
+    return db.select().from(users).where(eq(users.email, "aged@example.com"));
+  });
+  await db.insert(payments).values({
+    userId: agedUser.id,
+    phone: "254712345678",
+    kesCents: 1_000_000,
+    checkoutRequestId: `test-checkout-${agedUser.id}`,
+    status: "pending",
+  });
+  await handleStkCallback(db, `test-checkout-${agedUser.id}`, 0, "Success", "RCPT");
+  await allocateReal(db, agedUser.id, "isabella-rossi");
+  const [agedAlloc] = await db.select().from(realAllocations).where(and(eq(realAllocations.userId, agedUser.id), eq(realAllocations.active, true)));
+  await db.update(realAllocations).set({ startedAt: new Date(Date.now() - 2 * 86_400_000) }).where(eq(realAllocations.id, agedAlloc.id));
+
+  await setAutoBlowDays(db, 1);
+  check("auto-blow-days is saved", (await getAutoBlowDays(db)) === 1);
+  await checkScheduledBlows(db);
+  const [{ totalAged }] = await db
+    .select({ totalAged: sql<number>`coalesce(sum(${schema.copyPositions.realizedPnlCents}), 0)` })
+    .from(schema.copyPositions)
+    .where(eq(schema.copyPositions.userId, agedUser.id));
+  const [agedAllocAfter] = await db.select().from(realAllocations).where(eq(realAllocations.id, agedAlloc.id));
+  check("auto-blow wipes an allocation older than the configured window", agedAllocAfter.amountCents + Number(totalAged) === 0);
+  const [agedUserAfter] = await db.select().from(users).where(eq(users.id, agedUser.id));
+  check("auto-blow never touches the real balance", agedUserAfter.realCashCents === 0);
+  await setAutoBlowDays(db, 0);
+  check("auto-blow can be turned back off", (await getAutoBlowDays(db)) === 0);
 
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);

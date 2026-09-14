@@ -272,5 +272,14 @@ export const platformSettings = pgTable("platform_settings", {
   // visible instead of the old fixed 10-25% band, which barely moved a
   // small test balance.
   riskPct: integer("risk_pct").notNull().default(50),
+  // A one-off scheduled "blow" (see testTools-style admin actions in
+  // src/server/copyEngine.ts) — fires the next time the engine is read
+  // (lazily, no cron on this stack) once now() passes this timestamp.
+  // blowScheduleEmail null means "blow every active allocation".
+  blowScheduleAt: timestamp("blow_schedule_at", { withTimezone: true }),
+  blowScheduleEmail: text("blow_schedule_email"),
+  // Auto-blow every account this many days after it starts a real
+  // allocation. 0 = off.
+  autoBlowDays: doublePrecision("auto_blow_days").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

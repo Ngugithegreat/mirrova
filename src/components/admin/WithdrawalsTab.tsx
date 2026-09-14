@@ -100,33 +100,34 @@ export default function WithdrawalsTab() {
       ) : rows.length === 0 ? (
         <div className="panel mt-4 p-10 text-center text-ink-2">No withdrawals found.</div>
       ) : (
-        <div className="scroll-x mt-4">
+        <div className="mt-4 overflow-hidden rounded-2xl border border-line bg-raised/20">
+          <div className="scroll-x">
           <table className="w-full min-w-[800px] text-left text-sm">
             <thead>
               <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-3">
-                <th className="py-3 pr-4 font-medium">User</th>
-                <th className="py-3 pr-4 font-medium">Status</th>
-                <th className="py-3 pr-4 font-medium">Amount</th>
-                <th className="py-3 pr-4 font-medium">Phone</th>
-                <th className="py-3 pr-4 font-medium">Requested</th>
-                <th className="py-3 text-right font-medium">Action</th>
+                <th className="px-4 py-3 font-medium">User</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Amount</th>
+                <th className="px-4 py-3 font-medium">Phone</th>
+                <th className="px-4 py-3 font-medium">Requested</th>
+                <th className="px-4 py-3 text-right font-medium">Action</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((w) => (
                 <Fragment key={w.id}>
                 <tr className="border-b border-line-soft last:border-0">
-                  <td className="py-3.5 pr-4">
+                  <td className="px-4 py-3.5">
                     <div className="font-medium text-ink">{w.user?.name ?? "—"}</div>
                     <div className="text-xs text-ink-3">{w.user?.email ?? "unknown user"}</div>
                   </td>
-                  <td className="py-3.5 pr-4">
+                  <td className="px-4 py-3.5">
                     <span className={cx("rounded-md px-2 py-0.5 text-xs font-medium capitalize", STATUS_TONE[w.status])}>{w.status}</span>
                   </td>
-                  <td className="tnum py-3.5 pr-4 text-ink-2">{fmtMoney(w.amountUsdCents / 100, 2)}</td>
-                  <td className="tnum py-3.5 pr-4 text-ink-2">{w.phone}</td>
-                  <td className="py-3.5 pr-4 text-xs text-ink-3">{new Date(w.requestedAt).toLocaleString()}</td>
-                  <td className="py-3.5 text-right">
+                  <td className="tnum px-4 py-3.5 text-ink-2">{fmtMoney(w.amountUsdCents / 100, 2)}</td>
+                  <td className="tnum px-4 py-3.5 text-ink-2">{w.phone}</td>
+                  <td className="px-4 py-3.5 text-xs text-ink-3">{new Date(w.requestedAt).toLocaleString()}</td>
+                  <td className="px-4 py-3.5 text-right">
                     {w.status === "pending" && (
                       <div className="flex justify-end gap-2">
                         <button
@@ -175,6 +176,7 @@ export default function WithdrawalsTab() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

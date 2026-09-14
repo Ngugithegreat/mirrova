@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { fmtMoney, cx } from "@/lib/format";
+import ActivityTab from "./ActivityTab";
+import DeskTab from "./DeskTab";
 
 type Position = {
   id: string;
@@ -19,7 +21,9 @@ type Position = {
 
 type TraderOption = { slug: string; name: string; markets: string[] };
 
-type EngineData = { open: Position[]; closed: Position[]; traders: TraderOption[] };
+type Summary = { openPositions: number; copiers: number; stakedCents: number; unrealizedPnlCents: number; realizedPnlCents: number };
+
+type EngineData = { open: Position[]; closed: Position[]; traders: TraderOption[]; summary: Summary };
 
 const CATEGORY_INSTRUMENTS: Record<string, string[]> = {
   Stocks: ["AAPL"],
@@ -31,6 +35,13 @@ const CATEGORY_INSTRUMENTS: Record<string, string[]> = {
 
 const STYLES = ["Conservative", "Balanced", "Aggressive"];
 const ALL_MARKETS = ["Stocks", "Crypto", "Forex", "Indices", "Commodities"];
+
+function pnlColor(cents: number) {
+  return cents > 0 ? "text-pos" : cents < 0 ? "text-neg" : "text-ink";
+}
+function signed(cents: number) {
+  return `${cents < 0 ? "−" : "+"}${fmtMoney(Math.abs(cents) / 100, 2)}`;
+}
 
 export default function EngineTab() {
   const [data, setData] = useState<EngineData | null>(null);
@@ -55,14 +66,49 @@ export default function EngineTab() {
   const [addBusy, setAddBusy] = useState(false);
   const [addMsg, setAddMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
+  // Testing dials (win rate / risk per trade)
+  const [dialsSaved, setDialsSaved] = useState<{ winRatePct: number; riskPct: number } | null>(null);
+  const [winDraft, setWinDraft] = useState(55);
+  const [riskDraft, setRiskDraft] = useState(50);
+  const [dialsBusy, setDialsBusy] = useState(false);
+  const [dialsMsg, setDialsMsg] = useState<string | null>(null);
+
+  // Testing tools (add funds / blow)
+  const [testEmail, setTestEmail] = useState("");
+  const [testAmount, setTestAmount] = useState("1000");
+  const [testMinutes, setTestMinutes] = useState("2");
+  const [testMsg, setTestMsg] = useState<string | null>(null);
+  const [testBusy, setTestBusy] = useState<string | null>(null);
+  const [autoBlowDraft, setAutoBlowDraft] = useState("0");
+  const [savedAutoBlow, setSavedAutoBlow] = useState<number | null>(null);
+  const [autoBlowBusy, setAutoBlowBusy] = useState(false);
+
   function load() {
     fetch("/api/admin/engine")
       .then((r) => r.json())
       .then((d) => setData(d))
-      .catch(() => setData({ open: [], closed: [], traders: [] }));
+      .catch(() => setData({ open: [], closed: [], traders: [], summary: { openPositions: 0, copiers: 0, stakedCents: 0, unrealizedPnlCents: 0, realizedPnlCents: 0 } }));
   }
 
-  useEffect(load, []);
+  function loadSettings() {
+    fetch("/api/admin/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        const winRatePct = d.winRatePct ?? 55;
+        const riskPct = d.riskPct ?? 50;
+        setDialsSaved({ winRatePct, riskPct });
+        setWinDraft(winRatePct);
+        setRiskDraft(riskPct);
+        setSavedAutoBlow(d.autoBlowDays ?? 0);
+        setAutoBlowDraft(String(d.autoBlowDays ?? 0));
+      })
+      .catch(() => setDialsSaved({ winRatePct: 55, riskPct: 50 }));
+  }
+
+  useEffect(() => {
+    load();
+    loadSettings();
+  }, []);
 
   const selectedTrader = data?.traders.find((t) => t.slug === openTrader);
   const instrumentPool = selectedTrader
@@ -149,16 +195,94 @@ export default function EngineTab() {
     }
   }
 
-  if (!data) return <div className="py-16 text-center text-ink-3">Loading…</div>;
+  async function saveDials() {
+    setDialsBusy(true);
+    setDialsMsg(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ winRatePct: winDraft, riskPct: riskDraft }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || "Something went wrong.");
+      setDialsSaved({ winRatePct: d.winRatePct, riskPct: d.riskPct });
+      setDialsMsg("Saved — applied immediately.");
+      load();
+    } catch (err) {
+      setDialsMsg(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setDialsBusy(false);
+    }
+  }
+
+  async function runTest(action: "credit" | "blow" | "schedule-blow" | "cancel-blow") {
+    setTestBusy(action);
+    setTestMsg(null);
+    try {
+      const res = await fetch("/api/admin/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, email: testEmail.trim() || undefined, amount: Number(testAmount), minutes: Number(testMinutes) }),
+      });
+      const d = await res.json().catch(() => ({}));
+      setTestMsg(res.ok ? d.message ?? "Done." : d.error ?? "Failed.");
+      load();
+    } finally {
+      setTestBusy(null);
+    }
+  }
+
+  async function saveAutoBlow() {
+    setAutoBlowBusy(true);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ autoBlowDays: Number(autoBlowDraft) }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok && d.autoBlowDays != null) {
+        setSavedAutoBlow(d.autoBlowDays);
+        setAutoBlowDraft(String(d.autoBlowDays));
+      }
+    } finally {
+      setAutoBlowBusy(false);
+    }
+  }
+
+  if (!data || !dialsSaved) return <div className="py-16 text-center text-ink-3">Loading…</div>;
+  const s = data.summary;
 
   return (
     <div className="space-y-10">
-      <p className="text-xs leading-relaxed text-ink-3">
-        Illustrative only — P&L here is never settled to any user&apos;s real balance. Ticks automatically on read,
-        and can also be opened/closed manually below.
-      </p>
+      <div className="flex items-center gap-2.5">
+        <span className="rounded-full border border-warn/30 bg-warn/10 px-2.5 py-1 text-[11px] font-medium text-warn">Paper mode</span>
+        <p className="text-xs leading-relaxed text-ink-3">
+          Illustrative only — P&L here is never settled to any user&apos;s real balance. Ticks automatically on read, and can also be opened/closed manually below.
+        </p>
+      </div>
 
       {error && <p className="text-sm text-neg">{error}</p>}
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="panel rounded-2xl p-4">
+          <span className="text-[12px] text-ink-3">Open positions</span>
+          <p className="tnum mt-2 font-display text-[22px] font-bold text-ink">{s.openPositions}</p>
+        </div>
+        <div className="panel rounded-2xl p-4">
+          <span className="text-[12px] text-ink-3">Copiers · staked</span>
+          <p className="tnum mt-2 font-display text-[22px] font-bold text-ink">{s.copiers} · {fmtMoney(s.stakedCents / 100)}</p>
+        </div>
+        <div className="panel rounded-2xl p-4">
+          <span className="text-[12px] text-ink-3">Unrealized P&L</span>
+          <p className={cx("tnum mt-2 font-display text-[22px] font-bold", pnlColor(s.unrealizedPnlCents))}>{signed(s.unrealizedPnlCents)}</p>
+        </div>
+        <div className="panel rounded-2xl p-4">
+          <span className="text-[12px] text-ink-3">Realized (all-time)</span>
+          <p className={cx("tnum mt-2 font-display text-[22px] font-bold", pnlColor(s.realizedPnlCents))}>{signed(s.realizedPnlCents)}</p>
+        </div>
+      </div>
 
       <section className="panel p-5">
         <h2 className="font-display text-lg font-semibold">Open a position</h2>
@@ -200,16 +324,16 @@ export default function EngineTab() {
           <div>
             <label className="text-xs font-medium uppercase tracking-wide text-ink-3">Side</label>
             <div className="mt-1.5 flex gap-1.5">
-              {(["long", "short"] as const).map((s) => (
+              {(["long", "short"] as const).map((sd) => (
                 <button
-                  key={s}
-                  onClick={() => setOpenSide(s)}
+                  key={sd}
+                  onClick={() => setOpenSide(sd)}
                   className={cx(
                     "rounded-lg border px-3 py-2 text-xs font-semibold uppercase transition-colors",
-                    openSide === s ? "border-mint/50 bg-mint/10 text-mint" : "border-line text-ink-2"
+                    openSide === sd ? "border-mint/50 bg-mint/10 text-mint" : "border-line text-ink-2"
                   )}
                 >
-                  {s}
+                  {sd}
                 </button>
               ))}
             </div>
@@ -243,9 +367,9 @@ export default function EngineTab() {
             <input value={pCountry} onChange={(e) => setPCountry(e.target.value)} placeholder="Country" className="rounded-lg border border-line bg-raised/60 px-3 py-2 text-sm text-ink placeholder:text-ink-3 focus:border-mint/50 focus:outline-none" />
             <input value={pStrategy} onChange={(e) => setPStrategy(e.target.value)} placeholder="Strategy (e.g. FX Trend Rider)" className="rounded-lg border border-line bg-raised/60 px-3 py-2 text-sm text-ink placeholder:text-ink-3 focus:border-mint/50 focus:outline-none" />
             <select value={pStyle} onChange={(e) => setPStyle(e.target.value)} className="rounded-lg border border-line bg-raised/60 px-3 py-2 text-sm text-ink focus:border-mint/50 focus:outline-none">
-              {STYLES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
+              {STYLES.map((s2) => (
+                <option key={s2} value={s2}>
+                  {s2}
                 </option>
               ))}
             </select>
@@ -293,102 +417,207 @@ export default function EngineTab() {
         {data.open.length === 0 ? (
           <div className="panel mt-4 p-8 text-center text-ink-2">No trader currently has an active real allocation.</div>
         ) : (
-          <div className="scroll-x mt-4">
-            <table className="w-full min-w-[900px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-3">
-                  <th className="py-3 pr-4 font-medium">Trader</th>
-                  <th className="py-3 pr-4 font-medium">Instrument</th>
-                  <th className="py-3 pr-4 font-medium">Side</th>
-                  <th className="py-3 pr-4 font-medium">Entry</th>
-                  <th className="py-3 pr-4 font-medium">Copiers</th>
-                  <th className="py-3 pr-4 font-medium">Mirrored</th>
-                  <th className="py-3 pr-4 font-medium">Opened</th>
-                  <th className="py-3 text-right font-medium">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.open.map((p) => (
-                  <tr key={p.id} className="border-b border-line-soft last:border-0">
-                    <td className="py-3.5 pr-4 font-medium text-ink">{p.traderName}</td>
-                    <td className="py-3.5 pr-4 text-ink-2">{p.instrument}</td>
-                    <td className="py-3.5 pr-4">
-                      <span
-                        className={cx(
-                          "rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase",
-                          p.side === "long" ? "bg-pos/15 text-pos" : "bg-neg/15 text-neg"
-                        )}
-                      >
-                        {p.side}
-                      </span>
-                    </td>
-                    <td className="tnum py-3.5 pr-4 text-ink-2">{p.entryPrice}</td>
-                    <td className="tnum py-3.5 pr-4 text-ink-2">{p.copierCount}</td>
-                    <td className="tnum py-3.5 pr-4 text-ink-2">{fmtMoney(p.totalMirroredCents / 100)}</td>
-                    <td className="py-3.5 pr-4 text-xs text-ink-3">{new Date(p.openedAt).toLocaleString()}</td>
-                    <td className="py-3.5 text-right">
-                      <button
-                        onClick={() => closePosition(p.id)}
-                        disabled={busyId === p.id}
-                        className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-neg/50 hover:text-neg disabled:opacity-50"
-                      >
-                        {busyId === p.id ? "…" : "Close"}
-                      </button>
-                    </td>
+          <div className="mt-4 overflow-hidden rounded-2xl border border-line bg-raised/20">
+            <div className="scroll-x">
+              <table className="w-full min-w-[900px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-3">
+                    <th className="px-4 py-3 font-medium">Trader</th>
+                    <th className="px-4 py-3 font-medium">Instrument</th>
+                    <th className="px-4 py-3 font-medium">Side</th>
+                    <th className="px-4 py-3 font-medium">Entry</th>
+                    <th className="px-4 py-3 font-medium">Copiers</th>
+                    <th className="px-4 py-3 font-medium">Mirrored</th>
+                    <th className="px-4 py-3 font-medium">Opened</th>
+                    <th className="px-4 py-3 text-right font-medium">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data.open.map((p) => (
+                    <tr key={p.id} className="border-b border-line-soft last:border-0">
+                      <td className="px-4 py-3.5 font-medium text-ink">{p.traderName}</td>
+                      <td className="px-4 py-3.5 text-ink-2">{p.instrument}</td>
+                      <td className="px-4 py-3.5">
+                        <span className={cx("rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase", p.side === "long" ? "bg-pos/15 text-pos" : "bg-neg/15 text-neg")}>{p.side}</span>
+                      </td>
+                      <td className="tnum px-4 py-3.5 text-ink-2">{p.entryPrice}</td>
+                      <td className="tnum px-4 py-3.5 text-ink-2">{p.copierCount}</td>
+                      <td className="tnum px-4 py-3.5 text-ink-2">{fmtMoney(p.totalMirroredCents / 100)}</td>
+                      <td className="px-4 py-3.5 text-xs text-ink-3">{new Date(p.openedAt).toLocaleString()}</td>
+                      <td className="px-4 py-3.5 text-right">
+                        <button
+                          onClick={() => closePosition(p.id)}
+                          disabled={busyId === p.id}
+                          className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-neg/50 hover:text-neg disabled:opacity-50"
+                        >
+                          {busyId === p.id ? "…" : "Close"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </section>
 
-      <section>
-        <h2 className="font-display text-lg font-semibold">Recently closed ({data.closed.length})</h2>
-        {data.closed.length === 0 ? (
-          <div className="panel mt-4 p-8 text-center text-ink-2">Nothing closed yet.</div>
-        ) : (
-          <div className="scroll-x mt-4">
-            <table className="w-full min-w-[800px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-3">
-                  <th className="py-3 pr-4 font-medium">Trader</th>
-                  <th className="py-3 pr-4 font-medium">Instrument</th>
-                  <th className="py-3 pr-4 font-medium">Side</th>
-                  <th className="py-3 pr-4 font-medium">Entry → Close</th>
-                  <th className="py-3 pr-4 font-medium">Copiers</th>
-                  <th className="py-3 pr-4 font-medium">Mirrored</th>
-                  <th className="py-3 text-right font-medium">Closed</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.closed.map((p) => (
-                  <tr key={p.id} className="border-b border-line-soft last:border-0">
-                    <td className="py-3.5 pr-4 font-medium text-ink">{p.traderName}</td>
-                    <td className="py-3.5 pr-4 text-ink-2">{p.instrument}</td>
-                    <td className="py-3.5 pr-4">
-                      <span
-                        className={cx(
-                          "rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase",
-                          p.side === "long" ? "bg-pos/15 text-pos" : "bg-neg/15 text-neg"
-                        )}
-                      >
-                        {p.side}
-                      </span>
-                    </td>
-                    <td className="tnum py-3.5 pr-4 text-ink-2">
-                      {p.entryPrice} → {p.closePrice ?? "—"}
-                    </td>
-                    <td className="tnum py-3.5 pr-4 text-ink-2">{p.copierCount}</td>
-                    <td className="tnum py-3.5 pr-4 text-ink-2">{fmtMoney(p.totalMirroredCents / 100)}</td>
-                    <td className="py-3.5 text-right text-xs text-ink-3">{p.closedAt ? new Date(p.closedAt).toLocaleString() : "—"}</td>
+      {data.closed.length > 0 && (
+        <section>
+          <h2 className="font-display text-lg font-semibold">Recently closed ({data.closed.length})</h2>
+          <div className="mt-4 overflow-hidden rounded-2xl border border-line bg-raised/20">
+            <div className="scroll-x">
+              <table className="w-full min-w-[800px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-line text-xs uppercase tracking-wide text-ink-3">
+                    <th className="px-4 py-3 font-medium">Trader</th>
+                    <th className="px-4 py-3 font-medium">Instrument</th>
+                    <th className="px-4 py-3 font-medium">Side</th>
+                    <th className="px-4 py-3 font-medium">Entry → Close</th>
+                    <th className="px-4 py-3 font-medium">Copiers</th>
+                    <th className="px-4 py-3 font-medium">Mirrored</th>
+                    <th className="px-4 py-3 text-right font-medium">Closed</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data.closed.map((p) => (
+                    <tr key={p.id} className="border-b border-line-soft last:border-0">
+                      <td className="px-4 py-3.5 font-medium text-ink">{p.traderName}</td>
+                      <td className="px-4 py-3.5 text-ink-2">{p.instrument}</td>
+                      <td className="px-4 py-3.5">
+                        <span className={cx("rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase", p.side === "long" ? "bg-pos/15 text-pos" : "bg-neg/15 text-neg")}>{p.side}</span>
+                      </td>
+                      <td className="tnum px-4 py-3.5 text-ink-2">{p.entryPrice} → {p.closePrice ?? "—"}</td>
+                      <td className="tnum px-4 py-3.5 text-ink-2">{p.copierCount}</td>
+                      <td className="tnum px-4 py-3.5 text-ink-2">{fmtMoney(p.totalMirroredCents / 100)}</td>
+                      <td className="px-4 py-3.5 text-right text-xs text-ink-3">{p.closedAt ? new Date(p.closedAt).toLocaleString() : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        )}
+        </section>
+      )}
+
+      <section>
+        <h2 className="font-display text-lg font-semibold">Copy activity</h2>
+        <div className="mt-4"><ActivityTab /></div>
       </section>
+
+      <section>
+        <h2 className="font-display text-lg font-semibold">Desk</h2>
+        <div className="mt-4"><DeskTab /></div>
+      </section>
+
+      <section className="panel p-5">
+        <h2 className="font-display text-lg font-semibold">Testing dials</h2>
+        <p className="mt-1 text-xs text-ink-3">Testing only — engineers the paper-settlement engine&apos;s outcomes for end-to-end testing. Nothing here affects any real balance.</p>
+        <div className="mt-4 flex items-center justify-between">
+          <p className="text-[13px] font-medium text-ink">System win rate</p>
+          <span className="tnum text-lg font-semibold text-ink">{winDraft}%</span>
+        </div>
+        <input type="range" min={0} max={100} step={1} value={winDraft} onChange={(e) => setWinDraft(Number(e.target.value))} className="mt-2 w-full accent-mint" />
+        <div className="mt-4 flex items-center justify-between">
+          <p className="text-[13px] font-medium text-ink">Risk per trade</p>
+          <span className="tnum text-lg font-semibold text-ink">{riskDraft}%</span>
+        </div>
+        <input type="range" min={1} max={100} step={1} value={riskDraft} onChange={(e) => setRiskDraft(Number(e.target.value))} className="mt-2 w-full accent-fuchsia" />
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            onClick={saveDials}
+            disabled={dialsBusy || (winDraft === dialsSaved.winRatePct && riskDraft === dialsSaved.riskPct)}
+            className="rounded-lg border border-mint/50 bg-mint/10 px-4 py-2 text-sm font-medium text-mint transition-colors disabled:opacity-50"
+          >
+            {dialsBusy ? "Saving…" : "Save"}
+          </button>
+          {dialsMsg && <p className="text-xs text-ink-3">{dialsMsg}</p>}
+        </div>
+      </section>
+
+      <div className="rounded-2xl border border-warn/30 bg-warn/[0.05] p-4">
+        <p className="text-[13px] font-semibold text-warn">Testing tools</p>
+        <p className="mb-3 text-[11.5px] text-warn/70">For pre-launch testing only — remove before you go public. No real payment involved.</p>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={testEmail}
+            onChange={(e) => setTestEmail(e.target.value)}
+            placeholder="user email (blank = all)"
+            className="w-56 rounded-lg border border-line bg-raised/60 px-3 py-2 text-sm text-ink placeholder:text-ink-3 focus:border-warn/50 focus:outline-none"
+          />
+          <div className="relative">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-ink-3">$</span>
+            <input
+              value={testAmount}
+              onChange={(e) => setTestAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+              inputMode="decimal"
+              className="w-28 rounded-lg border border-line bg-raised/60 py-2 pl-6 pr-3 text-sm text-ink focus:border-warn/50 focus:outline-none"
+            />
+          </div>
+          <button
+            onClick={() => runTest("credit")}
+            disabled={testBusy !== null || !testEmail.trim()}
+            className="rounded-lg border border-line px-3.5 py-2 text-[12.5px] font-medium text-ink-2 transition-colors hover:border-mint/50 hover:text-mint disabled:opacity-50"
+          >
+            {testBusy === "credit" ? "…" : "Add test funds"}
+          </button>
+          <button
+            onClick={() => runTest("blow")}
+            disabled={testBusy !== null}
+            className="rounded-lg border border-neg/40 bg-neg/[0.1] px-3.5 py-2 text-[12.5px] font-semibold text-neg transition-colors hover:bg-neg/[0.18] disabled:opacity-50"
+          >
+            {testBusy === "blow" ? "…" : `Blow now${testEmail.trim() ? "" : " (all)"}`}
+          </button>
+        </div>
+
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-warn/15 pt-2.5">
+          <span className="text-[11.5px] text-warn/70">Or blow in</span>
+          <div className="relative">
+            <input
+              value={testMinutes}
+              onChange={(e) => setTestMinutes(e.target.value.replace(/[^0-9.]/g, ""))}
+              inputMode="decimal"
+              className="w-20 rounded-lg border border-line bg-raised/60 py-2 pl-3 pr-10 text-sm text-ink focus:border-warn/50 focus:outline-none"
+            />
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-ink-3">min</span>
+          </div>
+          <button
+            onClick={() => runTest("schedule-blow")}
+            disabled={testBusy !== null}
+            className="rounded-lg border border-line px-3.5 py-2 text-[12.5px] font-medium text-ink-2 transition-colors hover:border-mint/50 hover:text-mint disabled:opacity-50"
+          >
+            {testBusy === "schedule-blow" ? "…" : "Set timer"}
+          </button>
+          <button onClick={() => runTest("cancel-blow")} disabled={testBusy !== null} className="text-[12px] font-medium text-ink-3 underline-offset-2 hover:text-ink hover:underline">
+            Cancel timer
+          </button>
+        </div>
+
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-warn/15 pt-2.5">
+          <span className="text-[11.5px] text-warn/70">Auto-blow each account</span>
+          <div className="relative">
+            <input
+              value={autoBlowDraft}
+              onChange={(e) => setAutoBlowDraft(e.target.value.replace(/[^0-9.]/g, ""))}
+              inputMode="decimal"
+              placeholder="0"
+              className="w-20 rounded-lg border border-line bg-raised/60 py-2 pl-3 pr-12 text-sm text-ink focus:border-warn/50 focus:outline-none"
+            />
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-ink-3">days</span>
+          </div>
+          <span className="text-[11.5px] text-warn/70">after it starts copying</span>
+          <button onClick={saveAutoBlow} disabled={autoBlowBusy} className="rounded-lg border border-line px-3.5 py-2 text-[12.5px] font-medium text-ink-2 transition-colors hover:border-mint/50 hover:text-mint disabled:opacity-50">
+            {autoBlowBusy ? "…" : "Save"}
+          </button>
+          <span className="text-[11px] text-ink-3">
+            {savedAutoBlow != null && savedAutoBlow > 0
+              ? `On — every account blows ${savedAutoBlow} day${savedAutoBlow === 1 ? "" : "s"} after it starts.`
+              : "Off (0). Set >0 to auto-blow. Tip: 0.02 ≈ 30 min for fast tests."}
+          </span>
+        </div>
+        {testMsg && <p className="mt-2 text-[12px] text-warn">{testMsg}</p>}
+      </div>
     </div>
   );
 }

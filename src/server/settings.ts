@@ -37,3 +37,43 @@ export async function setRiskPct(db: AppDb, pct: number): Promise<{ ok: true; ri
     .onConflictDoUpdate({ target: platformSettings.id, set: { riskPct: clamped, updatedAt: new Date() } });
   return { ok: true, riskPct: clamped };
 }
+
+/** A one-off scheduled test "blow" — fires the next time the engine is
+ * lazily read (no cron on this stack) once now() passes `at`. */
+export async function setBlowSchedule(db: AppDb, at: number, email: string | null): Promise<void> {
+  await db
+    .insert(platformSettings)
+    .values({ id: SETTINGS_ID, blowScheduleAt: new Date(at), blowScheduleEmail: email })
+    .onConflictDoUpdate({ target: platformSettings.id, set: { blowScheduleAt: new Date(at), blowScheduleEmail: email, updatedAt: new Date() } });
+}
+
+export async function getBlowSchedule(db: AppDb): Promise<{ at: number; email: string | null } | null> {
+  const [row] = await db
+    .select({ blowScheduleAt: platformSettings.blowScheduleAt, blowScheduleEmail: platformSettings.blowScheduleEmail })
+    .from(platformSettings)
+    .where(eq(platformSettings.id, SETTINGS_ID))
+    .limit(1);
+  if (!row?.blowScheduleAt) return null;
+  return { at: row.blowScheduleAt.getTime(), email: row.blowScheduleEmail };
+}
+
+export async function clearBlowSchedule(db: AppDb): Promise<void> {
+  await db
+    .insert(platformSettings)
+    .values({ id: SETTINGS_ID, blowScheduleAt: null, blowScheduleEmail: null })
+    .onConflictDoUpdate({ target: platformSettings.id, set: { blowScheduleAt: null, blowScheduleEmail: null, updatedAt: new Date() } });
+}
+
+export async function getAutoBlowDays(db: AppDb): Promise<number> {
+  const [row] = await db.select({ autoBlowDays: platformSettings.autoBlowDays }).from(platformSettings).where(eq(platformSettings.id, SETTINGS_ID)).limit(1);
+  return row?.autoBlowDays ?? 0;
+}
+
+export async function setAutoBlowDays(db: AppDb, days: number): Promise<{ ok: true; autoBlowDays: number } | { ok: false; error: string }> {
+  if (!Number.isFinite(days) || days < 0) return { ok: false, error: "Auto-blow days must be 0 or more." };
+  await db
+    .insert(platformSettings)
+    .values({ id: SETTINGS_ID, autoBlowDays: days })
+    .onConflictDoUpdate({ target: platformSettings.id, set: { autoBlowDays: days, updatedAt: new Date() } });
+  return { ok: true, autoBlowDays: days };
+}

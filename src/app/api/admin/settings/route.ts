@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { requireAdmin } from "@/server/adminAuth";
-import { getWinRatePct, setWinRatePct, getRiskPct, setRiskPct } from "@/server/settings";
+import { getWinRatePct, setWinRatePct, getRiskPct, setRiskPct, getAutoBlowDays, setAutoBlowDays } from "@/server/settings";
 import { forceRolloverAllTraders } from "@/server/copyEngine";
 
 export async function GET() {
   if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   const db = getDb();
-  return NextResponse.json({ winRatePct: await getWinRatePct(db), riskPct: await getRiskPct(db) });
+  return NextResponse.json({
+    winRatePct: await getWinRatePct(db),
+    riskPct: await getRiskPct(db),
+    autoBlowDays: await getAutoBlowDays(db),
+  });
 }
 
 export async function POST(req: Request) {
@@ -23,6 +27,10 @@ export async function POST(req: Request) {
     const result = await setRiskPct(db, Number(body.riskPct));
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   }
+  if (body?.autoBlowDays !== undefined) {
+    const result = await setAutoBlowDays(db, Number(body.autoBlowDays));
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
+  }
 
   // Apply immediately: close every currently-open illustrative position so
   // the next read opens a fresh one under the settings just saved, instead
@@ -31,5 +39,10 @@ export async function POST(req: Request) {
     await forceRolloverAllTraders(db);
   }
 
-  return NextResponse.json({ ok: true, winRatePct: await getWinRatePct(db), riskPct: await getRiskPct(db) });
+  return NextResponse.json({
+    ok: true,
+    winRatePct: await getWinRatePct(db),
+    riskPct: await getRiskPct(db),
+    autoBlowDays: await getAutoBlowDays(db),
+  });
 }

@@ -1,8 +1,8 @@
-import { eq, and, desc, sql } from "drizzle-orm";
-import { providerPositions, copyPositions, realAllocations, activity } from "@/db/schema";
+import { eq, and, desc, sql, lte } from "drizzle-orm";
+import { providerPositions, copyPositions, realAllocations, activity, users } from "@/db/schema";
 import type { AppDb } from "@/db/types";
 import { getRealPrice } from "./marketData";
-import { getWinRatePct, getRiskPct } from "./settings";
+import { getWinRatePct, getRiskPct, getBlowSchedule, clearBlowSchedule, getAutoBlowDays } from "./settings";
 import { getTraderAny, listAllTraders } from "./providers";
 import { rngFor } from "@/lib/prng";
 
@@ -286,6 +286,7 @@ export async function getEngineView(
   db: AppDb,
   userId: string
 ): Promise<{ open: EngineOpenPosition | null; recentlyClosed: EngineClosedPosition[]; cumulativeRealizedPnlCents: number }> {
+  await checkScheduledBlows(db);
   const [alloc] = await db.select().from(realAllocations).where(and(eq(realAllocations.userId, userId), eq(realAllocations.active, true))).limit(1);
   if (!alloc) return { open: null, recentlyClosed: [], cumulativeRealizedPnlCents: 0 };
 
@@ -391,6 +392,61 @@ export async function blowIllustrativeEquity(db: AppDb, userId: string): Promise
   return { ok: true };
 }
 
+/** Testing-only: blows every user that currently has an active real
+ * allocation (or just the one matching `email`, if given). Reuses
+ * blowIllustrativeEquity's exact hard-rule guarantee — real principal is
+ * never touched — for each user. */
+export async function blowAllIllustrativeEquity(db: AppDb, email?: string): Promise<{ blown: number }> {
+  let targetUserIds: string[];
+  if (email) {
+    const [u] = await db.select({ id: users.id }).from(users).where(eq(users.email, email.toLowerCase().trim())).limit(1);
+    targetUserIds = u ? [u.id] : [];
+  } else {
+    const rows = await db.select({ userId: realAllocations.userId }).from(realAllocations).where(eq(realAllocations.active, true));
+    targetUserIds = [...new Set(rows.map((r) => r.userId))];
+  }
+
+  let blown = 0;
+  for (const userId of targetUserIds) {
+    const result = await blowIllustrativeEquity(db, userId);
+    if (result.ok) blown++;
+  }
+  return { blown };
+}
+
+/** Auto-blow: blows every active allocation that started more than `days`
+ * days ago. Idempotent on an already-$0 account (blowIllustrativeEquity is
+ * a no-op once equity is already zero). */
+async function blowAgedAllocations(db: AppDb, days: number): Promise<{ blown: number }> {
+  if (!(days > 0)) return { blown: 0 };
+  const cutoff = new Date(Date.now() - days * 86_400_000);
+  const aged = await db
+    .select({ userId: realAllocations.userId })
+    .from(realAllocations)
+    .where(and(eq(realAllocations.active, true), lte(realAllocations.startedAt, cutoff)));
+
+  let blown = 0;
+  for (const userId of [...new Set(aged.map((a) => a.userId))]) {
+    const result = await blowIllustrativeEquity(db, userId);
+    if (result.ok) blown++;
+  }
+  return { blown };
+}
+
+/** Checked lazily wherever the engine is read (admin view or a user's own
+ * wallet) — no cron on this stack, so a scheduled/auto blow fires the next
+ * time anything touches the engine rather than at the exact second. Good
+ * enough for its stated pre-launch-testing purpose. */
+export async function checkScheduledBlows(db: AppDb): Promise<void> {
+  const schedule = await getBlowSchedule(db);
+  if (schedule && schedule.at <= Date.now()) {
+    await blowAllIllustrativeEquity(db, schedule.email ?? undefined);
+    await clearBlowSchedule(db);
+  }
+  const autoBlowDays = await getAutoBlowDays(db);
+  if (autoBlowDays > 0) await blowAgedAllocations(db, autoBlowDays);
+}
+
 /** Shared by getEngineView's compact widget (limit 5) and the Portfolio
  * analytics page, which wants a deeper history. */
 export async function listClosedCopyPositions(db: AppDb, userId: string, limit = 5): Promise<EngineClosedPosition[]> {
@@ -420,6 +476,7 @@ export async function listClosedCopyPositions(db: AppDb, userId: string, limit =
  * pick from, and per-position ids so a specific open position can be
  * closed early. */
 export async function getEngineAdminView(db: AppDb) {
+  await checkScheduledBlows(db);
   await tickEngine(db);
 
   const openRows = await db.select().from(providerPositions).where(eq(providerPositions.active, true)).orderBy(desc(providerPositions.openedAt)).limit(50);
@@ -430,25 +487,46 @@ export async function getEngineAdminView(db: AppDb) {
     .orderBy(desc(providerPositions.closedAt))
     .limit(50);
 
-  async function withCopyStats(rows: (typeof providerPositions.$inferSelect)[]) {
+  let openCopiers = 0;
+  let openStakedCents = 0;
+  let unrealizedPnlCents = 0;
+
+  async function withCopyStats(rows: (typeof providerPositions.$inferSelect)[], isOpen: boolean) {
     const out = [];
     for (const pos of rows) {
       const copies = await db.select().from(copyPositions).where(eq(copyPositions.providerPositionId, pos.id));
       const trader = await getTraderAny(db, pos.traderSlug);
-      out.push({
-        ...pos,
-        traderName: trader?.name ?? pos.traderSlug,
-        copierCount: copies.length,
-        totalMirroredCents: copies.reduce((s, c) => s + c.sizeUsdCents, 0),
-      });
+      const totalMirroredCents = copies.reduce((s, c) => s + c.sizeUsdCents, 0);
+      if (isOpen) {
+        const price = await currentInterpolatedPrice(pos);
+        openCopiers += copies.length;
+        openStakedCents += totalMirroredCents;
+        for (const c of copies) unrealizedPnlCents += settle(c.sizeUsdCents, pos.side, pos.entryPrice, price);
+      }
+      out.push({ ...pos, traderName: trader?.name ?? pos.traderSlug, copierCount: copies.length, totalMirroredCents });
     }
     return out;
   }
 
+  const open = await withCopyStats(openRows, true);
+  const closed = await withCopyStats(closedRows, false);
+
+  const [{ realizedAllTime }] = await db
+    .select({ realizedAllTime: sql<number>`coalesce(sum(${copyPositions.realizedPnlCents}), 0)` })
+    .from(copyPositions)
+    .where(eq(copyPositions.active, false));
+
   const traders = await listAllTraders(db);
   return {
-    open: await withCopyStats(openRows),
-    closed: await withCopyStats(closedRows),
+    open,
+    closed,
     traders: traders.map((t) => ({ slug: t.slug, name: t.name, markets: t.markets })),
+    summary: {
+      openPositions: open.length,
+      copiers: openCopiers,
+      stakedCents: openStakedCents,
+      unrealizedPnlCents,
+      realizedPnlCents: Number(realizedAllTime),
+    },
   };
 }
