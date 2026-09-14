@@ -16,7 +16,7 @@ import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { eq, and, sql } from "drizzle-orm";
 import * as schema from "../src/db/schema";
-import { users, payments, cryptoPayments, realAllocations } from "../src/db/schema";
+import { users, payments, cryptoPayments, realAllocations, providerPositions, copyPositions } from "../src/db/schema";
 import { signUp } from "../src/server/account";
 import { handleStkCallback, reconcileDeposit, getRealAccount, allocateReal, deallocateReal, grantBonus } from "../src/server/realAccount";
 import { handleCryptoIpn, reconcileCryptoDeposit } from "../src/server/cryptoDeposits";
@@ -623,6 +623,82 @@ async function main() {
   check("auto-blow never touches the real balance", agedUserAfter.realCashCents === 0);
   await setAutoBlowDays(db, 0);
   check("auto-blow can be turned back off", (await getAutoBlowDays(db)) === 0);
+
+  // --- bug fix: a blown ($0 equity) account must not keep generating new
+  // full-sized mirrored trades — mirrorPosition now sizes off current
+  // equity (amountCents + cumulative realized P&L), not the static
+  // original amountCents, and skips entirely once equity is <= 0. ---
+  const [blownTrader] = await signUp(db, "Blown Trader Tester", "blowntrader@example.com", "hunter22pw").then(async (r) => {
+    if (!r.ok) throw new Error("signup failed");
+    return db.select().from(users).where(eq(users.email, "blowntrader@example.com"));
+  });
+  await db.insert(payments).values({
+    userId: blownTrader.id,
+    phone: "254712345678",
+    kesCents: 1_000_000,
+    checkoutRequestId: `test-checkout-${blownTrader.id}`,
+    status: "pending",
+  });
+  await handleStkCallback(db, `test-checkout-${blownTrader.id}`, 0, "Success", "RCPT");
+  const blownAllocRes = await allocateReal(db, blownTrader.id, "priya-sharma");
+  check("funding and allocating the blown-trader test user succeeds", blownAllocRes.ok);
+  const [blownAlloc] = await db.select().from(realAllocations).where(and(eq(realAllocations.userId, blownTrader.id), eq(realAllocations.active, true)));
+
+  await tickEngine(db, "priya-sharma"); // opens + mirrors a first position
+  const [copyBeforeBlow] = await db.select().from(copyPositions).where(and(eq(copyPositions.realAllocationId, blownAlloc.id), eq(copyPositions.active, true)));
+  check("the allocation gets a mirrored position under normal conditions", !!copyBeforeBlow);
+
+  const blowRes = await blowIllustrativeEquity(db, blownTrader.id);
+  check("blowing the account succeeds", blowRes.ok);
+  const [{ equityAfterBlow }] = await db
+    .select({ equityAfterBlow: sql<number>`coalesce(sum(${copyPositions.realizedPnlCents}), 0)` })
+    .from(copyPositions)
+    .where(and(eq(copyPositions.realAllocationId, blownAlloc.id), eq(copyPositions.active, false)));
+  check("the account's illustrative equity is exactly $0 after blowing", blownAlloc.amountCents + Number(equityAfterBlow) === 0);
+  check("the allocation itself stays active after a blow (it's a margin-call, not a closure)", (await db.select().from(realAllocations).where(eq(realAllocations.id, blownAlloc.id)))[0]!.active === true);
+
+  // Force the current provider position's bucket to roll over, the same
+  // way the existing engine-cycle tests simulate elapsed time.
+  const [priyaPos] = await db.select().from(providerPositions).where(and(eq(providerPositions.traderSlug, "priya-sharma"), eq(providerPositions.active, true)));
+  await db.update(providerPositions).set({ bucket: priyaPos.bucket - 1 }).where(eq(providerPositions.id, priyaPos.id));
+  await tickEngine(db, "priya-sharma");
+
+  const [copyAfterBlow] = await db.select().from(copyPositions).where(and(eq(copyPositions.realAllocationId, blownAlloc.id), eq(copyPositions.active, true)));
+  check("a blown account gets NO new mirrored position on the next bucket rollover", copyAfterBlow === undefined);
+  const [blownUserAfter] = await db.select().from(users).where(eq(users.id, blownTrader.id));
+  check("none of this ever touches the real balance", blownUserAfter.realCashCents === 0);
+
+  // --- bug fix: deallocating (withdrawing) must close any still-open
+  // mirrored position immediately, not let it linger until the engine's
+  // next natural bucket rollover. ---
+  const [withdrawnTrader] = await signUp(db, "Withdrawn Trader Tester", "withdrawntrader@example.com", "hunter22pw").then(async (r) => {
+    if (!r.ok) throw new Error("signup failed");
+    return db.select().from(users).where(eq(users.email, "withdrawntrader@example.com"));
+  });
+  await db.insert(payments).values({
+    userId: withdrawnTrader.id,
+    phone: "254712345678",
+    kesCents: 1_000_000,
+    checkoutRequestId: `test-checkout-${withdrawnTrader.id}`,
+    status: "pending",
+  });
+  await handleStkCallback(db, `test-checkout-${withdrawnTrader.id}`, 0, "Success", "RCPT");
+  await allocateReal(db, withdrawnTrader.id, "gabriel-santos");
+  const [withdrawnAlloc] = await db.select().from(realAllocations).where(and(eq(realAllocations.userId, withdrawnTrader.id), eq(realAllocations.active, true)));
+
+  await tickEngine(db, "gabriel-santos");
+  const [copyBeforeWithdraw] = await db.select().from(copyPositions).where(and(eq(copyPositions.realAllocationId, withdrawnAlloc.id), eq(copyPositions.active, true)));
+  check("the allocation gets a mirrored position before withdrawing", !!copyBeforeWithdraw);
+
+  const withdrawnPrincipal = withdrawnAlloc.amountCents;
+  const deallocRes = await deallocateReal(db, withdrawnTrader.id);
+  check("deallocating (withdrawing) succeeds", deallocRes.ok);
+
+  const [copyAfterWithdraw] = await db.select().from(copyPositions).where(eq(copyPositions.id, copyBeforeWithdraw!.id));
+  check("the previously-open mirrored position is closed immediately on withdrawal", copyAfterWithdraw.active === false);
+  check("withdrawal never invents P&L on the closed-out position", copyAfterWithdraw.realizedPnlCents === 0);
+  const [withdrawnUserAfter] = await db.select().from(users).where(eq(users.id, withdrawnTrader.id));
+  check("withdrawing still returns exactly the original principal", withdrawnUserAfter.realCashCents === withdrawnPrincipal);
 
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);

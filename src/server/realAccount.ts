@@ -1,5 +1,5 @@
 import { eq, and, desc } from "drizzle-orm";
-import { users, payments, cryptoPayments, realAllocations, kycProfiles, activity, bonusGrants } from "@/db/schema";
+import { users, payments, cryptoPayments, realAllocations, kycProfiles, activity, bonusGrants, copyPositions } from "@/db/schema";
 import type { AppDb } from "@/db/types";
 import { getTraderAny } from "./providers";
 import { ACCOUNT_TYPES, isAccountTypeId, type AccountTypeId } from "@/lib/accountTypes";
@@ -256,6 +256,17 @@ export async function deallocateReal(db: AppDb, userId: string): Promise<Result<
   if (!alloc) return fail("No active real allocation found.");
 
   await db.update(realAllocations).set({ active: false, stoppedAt: new Date() }).where(eq(realAllocations.id, alloc.id));
+
+  // Terminate any still-open illustrative mirror on this allocation right
+  // now rather than letting it linger until the engine's next natural
+  // bucket rollover — the allocation it was mirroring no longer exists,
+  // so it shouldn't keep showing as an open engine position after the
+  // user has withdrawn. No P&L is invented either way (still $0, and the
+  // hard rule already means this can never affect the real balance).
+  await db
+    .update(copyPositions)
+    .set({ active: false, closedAt: new Date(), realizedPnlCents: 0 })
+    .where(and(eq(copyPositions.realAllocationId, alloc.id), eq(copyPositions.active, true)));
 
   const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (user) {

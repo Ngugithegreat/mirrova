@@ -153,10 +153,24 @@ async function mirrorPosition(db: AppDb, active: typeof providerPositions.$infer
   // fixed 10-25% band, which barely moved a small test balance.
   const targetFraction = Math.min(1, Math.max(0.01, riskPct / 100));
   for (const alloc of missing) {
+    // Size off CURRENT equity (principal + cumulative realized P&L), never
+    // the static original amountCents — otherwise a blown ($0 equity)
+    // account keeps generating brand-new full-sized trades forever, since
+    // its allocation row stays active and its amountCents is never
+    // touched (by design — see blowIllustrativeEquity's doc). A blown or
+    // fully-drawn-down account has no capital left to mirror a new trade
+    // with, so it's skipped entirely until it deposits again.
+    const [{ realizedTotal }] = await db
+      .select({ realizedTotal: sql<number>`coalesce(sum(${copyPositions.realizedPnlCents}), 0)` })
+      .from(copyPositions)
+      .where(and(eq(copyPositions.realAllocationId, alloc.id), eq(copyPositions.active, false)));
+    const equityCents = alloc.amountCents + Number(realizedTotal);
+    if (equityCents <= 0) continue;
+
     const rnd = rngFor(`engine-size:${alloc.id}:${active.id}`);
     // ±15% jitter around the target so trades aren't perfectly identical.
     const fraction = Math.min(1, Math.max(0.01, targetFraction * (0.85 + rnd() * 0.3)));
-    const sizeUsdCents = Math.max(1, Math.round(alloc.amountCents * fraction));
+    const sizeUsdCents = Math.max(1, Math.round(equityCents * fraction));
     await db.insert(copyPositions).values({ providerPositionId: active.id, realAllocationId: alloc.id, userId: alloc.userId, sizeUsdCents });
   }
 }
