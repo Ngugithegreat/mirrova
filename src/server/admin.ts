@@ -91,7 +91,16 @@ export async function getUsersList(db: AppDb, q?: string) {
       .from(deskPositions)
       .where(and(eq(deskPositions.userId, u.id), eq(deskPositions.active, true)));
     const [kyc] = await db
-      .select({ status: kycProfiles.status, fullName: kycProfiles.fullName, idNumberMasked: kycProfiles.idNumberMasked })
+      .select({
+        status: kycProfiles.status,
+        fullName: kycProfiles.fullName,
+        idType: kycProfiles.idType,
+        idNumberMasked: kycProfiles.idNumberMasked,
+        dateOfBirth: kycProfiles.dateOfBirth,
+        address: kycProfiles.address,
+        submittedAt: kycProfiles.submittedAt,
+        reviewNote: kycProfiles.reviewNote,
+      })
       .from(kycProfiles)
       .where(eq(kycProfiles.userId, u.id))
       .limit(1);
