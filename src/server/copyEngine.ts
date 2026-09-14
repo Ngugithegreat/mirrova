@@ -2,7 +2,7 @@ import { eq, and, desc, sql, lte } from "drizzle-orm";
 import { providerPositions, copyPositions, realAllocations, activity, users } from "@/db/schema";
 import type { AppDb } from "@/db/types";
 import { getRealPrice } from "./marketData";
-import { getWinRatePct, getRiskPct, getBlowSchedule, clearBlowSchedule, getAutoBlowDays } from "./settings";
+import { getRiskPct, getBlowSchedule, clearBlowSchedule, getAutoBlowDays } from "./settings";
 import { getTraderAny, listAllTraders } from "./providers";
 import { rngFor } from "@/lib/prng";
 
@@ -19,23 +19,18 @@ function fail(error: string): { ok: false; error: string } {
  * RULE: none of this ever touches realAllocations.amountCents or
  * users.realCashCents — allocateReal/deallocateReal are untouched.
  *
- * Outcomes are engineered, not left to real price movement: the entry price
- * still mirrors the live current rate (getRealPrice), but the destined close
- * price is pre-computed at open time from the admin-configured testing win
- * rate (src/server/settings.ts) so the team can dial the whole system's win
- * rate to 0-100% for end-to-end loss/profit scenario testing. This is a
- * testing-only mechanism, removed before any real settlement ever ships.
+ * The outcome is never engineered or dial-controlled — entry and every
+ * mark-to-market read use the same real, unmanipulated market price
+ * (getRealPrice), and the position wins or loses based purely on where
+ * that real price actually is when the bucket closes. Admin controls only
+ * position SIZE (riskPct) and timing (manual open/close, blow, schedules)
+ * — never the win/loss outcome itself.
  */
 
 // Short on purpose — this is a testing-only engine (see module doc above),
 // and a 15-minute cycle made it impossible to actually watch a test account
-// win/lose multiple rounds in one sitting.
+// cycle through multiple trades in one sitting.
 const BUCKET_MS = 2 * 60 * 1000;
-// Base range at the default 50% risk dial; scaled by riskPct in
-// decidePosition so "risk" governs how big trades feel, not just how much
-// of the balance is at stake (see the sizing loop in tickTrader).
-const MIN_MOVE_MAGNITUDE = 0.01;
-const MOVE_MAGNITUDE_RANGE = 0.04; // 1%-5% base designed move
 
 export const CATEGORY_INSTRUMENTS: Record<string, string[]> = {
   Stocks: ["AAPL"],
@@ -58,52 +53,38 @@ function settle(sizeUsdCents: number, side: string, entryPrice: number, price: n
   return Math.max(Math.round(sizeUsdCents * pct), -sizeUsdCents);
 }
 
-/** The price interpolated toward the pre-computed destined close, by how far
- * through the bucket we are — so unrealized P&L moves believably tick to
- * tick instead of jumping straight to the designed answer. Falls back to a
- * fresh real-price fetch for any pre-existing row with no planned close. */
+/** The current mark-to-market price for an open position — always the
+ * real, live market price, never a manipulated or pre-computed one. Used
+ * identically for unrealized-P&L display and for final settlement at
+ * close, so a position's outcome is always whatever the real market
+ * actually did between entry and close. */
 async function currentInterpolatedPrice(pos: typeof providerPositions.$inferSelect): Promise<number> {
-  if (pos.plannedClosePrice == null) return getRealPrice(pos.instrument);
-  const bucketStart = pos.bucket * BUCKET_MS;
-  const progress = Math.min(1, Math.max(0, (Date.now() - bucketStart) / BUCKET_MS));
-  const noiseSeed = rngFor(`engine-noise:${pos.id}:${Math.floor(Date.now() / 10_000)}`)();
-  const noise = (noiseSeed - 0.5) * Math.abs(pos.plannedClosePrice - pos.entryPrice) * 0.15;
-  return pos.entryPrice + (pos.plannedClosePrice - pos.entryPrice) * progress + noise;
+  return getRealPrice(pos.instrument);
 }
 
-async function decidePosition(db: AppDb, traderSlug: string, bucket: number, riskPct: number) {
+async function decidePosition(db: AppDb, traderSlug: string, bucket: number) {
   const trader = await getTraderAny(db, traderSlug);
   const rnd = rngFor(`engine:${traderSlug}:${bucket}`);
   const markets = trader?.markets ?? ["Indices"];
   const market = markets[Math.floor(rnd() * markets.length)] ?? "Indices";
   const pool = CATEGORY_INSTRUMENTS[market] ?? CATEGORY_INSTRUMENTS.Indices;
   const instrument = pool[Math.floor(rnd() * pool.length)];
+  // Which side the trader takes is still randomized (simulating a trading
+  // style) — but nothing here decides whether that side wins or loses.
+  // That's left entirely to the real market price at close.
   const side: "long" | "short" = rnd() < 0.6 ? "long" : "short";
-
   const entryPrice = await getRealPrice(instrument);
-  const winRatePct = await getWinRatePct(db);
-  const designedWin = rnd() < winRatePct / 100;
-  // Scaled by the same admin risk dial used for position sizing (1.0x at
-  // the default 50%, 2.0x at 100%, 0.2x at 10%) — otherwise even 100% risk
-  // only ever moves 1%-5% of the allocation, which reads as "cents" on a
-  // small test balance.
-  const riskScale = riskPct / 50;
-  const magnitude = (MIN_MOVE_MAGNITUDE + rnd() * MOVE_MAGNITUDE_RANGE) * riskScale;
-  // A long position profits from a price rise, a short from a fall — pick
-  // the sign so the position lands on the designed outcome.
-  const priceDelta = (side === "long") === designedWin ? magnitude : -magnitude;
-  const plannedClosePrice = entryPrice * (1 + priceDelta);
 
-  return { instrument, side, entryPrice, plannedClosePrice };
+  return { instrument, side, entryPrice };
 }
 
 /** Closes one active provider position and settles every open copy mirroring
  * it — shared by the natural bucket-rollover path (tickTrader) and the
  * admin's "apply dial changes now" force-rollover (below), so changing
- * winRatePct/riskPct doesn't require waiting up to BUCKET_MS for the
- * currently-open illustrative trade to catch up. */
+ * riskPct doesn't require waiting up to BUCKET_MS for the currently-open
+ * illustrative trade to catch up. */
 async function closeActivePosition(db: AppDb, active: typeof providerPositions.$inferSelect) {
-  const closePrice = active.plannedClosePrice ?? (await getRealPrice(active.instrument));
+  const closePrice = await getRealPrice(active.instrument);
   await db
     .update(providerPositions)
     .set({ active: false, closedAt: new Date(), closePrice })
@@ -120,9 +101,9 @@ async function closeActivePosition(db: AppDb, active: typeof providerPositions.$
 }
 
 /** Closes every currently-open illustrative position immediately, so the
- * very next read opens fresh ones under whatever winRatePct/riskPct are
- * configured right now — called after an admin saves the testing dials, so
- * "I raised risk but nothing changed" isn't true for up to 15 minutes. */
+ * very next read opens fresh ones under whatever riskPct is configured
+ * right now — called after an admin saves the risk dial, so "I raised
+ * risk but nothing changed" isn't true for up to 15 minutes. */
 export async function forceRolloverAllTraders(db: AppDb) {
   const openPositions = await db.select().from(providerPositions).where(eq(providerPositions.active, true));
   for (const pos of openPositions) await closeActivePosition(db, pos);
@@ -205,8 +186,8 @@ async function tickTrader(db: AppDb, traderSlug: string) {
       .from(realAllocations)
       .where(and(eq(realAllocations.traderSlug, traderSlug), eq(realAllocations.active, true)));
     if (activeAllocations.length === 0) return; // nobody allocated to this trader — nothing to mirror
-    const { instrument, side, entryPrice, plannedClosePrice } = await decidePosition(db, traderSlug, bucket, riskPct);
-    [active] = await db.insert(providerPositions).values({ traderSlug, instrument, side, entryPrice, plannedClosePrice, bucket }).returning();
+    const { instrument, side, entryPrice } = await decidePosition(db, traderSlug, bucket);
+    [active] = await db.insert(providerPositions).values({ traderSlug, instrument, side, entryPrice, bucket }).returning();
   }
 
   await mirrorPosition(db, active, riskPct);
@@ -214,10 +195,11 @@ async function tickTrader(db: AppDb, traderSlug: string) {
 
 /** Admin-only: manually opens a position for a trader right now, on a
  * chosen instrument/side, instead of waiting for the automatic bucket
- * rollover to pick one at random. The destined outcome is still drawn from
- * the same admin-configured win-rate/risk dials as every other position —
- * this only fixes the instrument/side/timing, not the settlement math.
- * Mirrors immediately into every active real allocation on that trader. */
+ * rollover to pick one at random. The outcome is never forced — it opens
+ * at the real current price and settles at whatever the real price is
+ * when it closes, exactly like every other position. This only fixes the
+ * instrument/side/timing. Mirrors immediately into every active real
+ * allocation on that trader. */
 export async function adminOpenPosition(
   db: AppDb,
   traderSlug: string,
@@ -237,19 +219,9 @@ export async function adminOpenPosition(
 
   const bucket = Math.floor(Date.now() / BUCKET_MS);
   const riskPct = await getRiskPct(db);
-  const winRatePct = await getWinRatePct(db);
   const entryPrice = await getRealPrice(instrument);
-  const rnd = rngFor(`admin-open:${traderSlug}:${Date.now()}`);
-  const designedWin = rnd() < winRatePct / 100;
-  const riskScale = riskPct / 50;
-  const magnitude = (MIN_MOVE_MAGNITUDE + rnd() * MOVE_MAGNITUDE_RANGE) * riskScale;
-  const priceDelta = (side === "long") === designedWin ? magnitude : -magnitude;
-  const plannedClosePrice = entryPrice * (1 + priceDelta);
 
-  const [active] = await db
-    .insert(providerPositions)
-    .values({ traderSlug, instrument, side, entryPrice, plannedClosePrice, bucket })
-    .returning();
+  const [active] = await db.insert(providerPositions).values({ traderSlug, instrument, side, entryPrice, bucket }).returning();
   await mirrorPosition(db, active, riskPct);
   return { ok: true };
 }

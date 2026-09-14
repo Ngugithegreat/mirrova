@@ -66,9 +66,8 @@ export default function EngineTab() {
   const [addBusy, setAddBusy] = useState(false);
   const [addMsg, setAddMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
-  // Testing dials (win rate / risk per trade)
-  const [dialsSaved, setDialsSaved] = useState<{ winRatePct: number; riskPct: number } | null>(null);
-  const [winDraft, setWinDraft] = useState(55);
+  // Testing dial (risk per trade — position SIZE only, never the outcome)
+  const [dialsSaved, setDialsSaved] = useState<{ riskPct: number } | null>(null);
   const [riskDraft, setRiskDraft] = useState(50);
   const [dialsBusy, setDialsBusy] = useState(false);
   const [dialsMsg, setDialsMsg] = useState<string | null>(null);
@@ -94,15 +93,13 @@ export default function EngineTab() {
     fetch("/api/admin/settings")
       .then((r) => r.json())
       .then((d) => {
-        const winRatePct = d.winRatePct ?? 55;
         const riskPct = d.riskPct ?? 50;
-        setDialsSaved({ winRatePct, riskPct });
-        setWinDraft(winRatePct);
+        setDialsSaved({ riskPct });
         setRiskDraft(riskPct);
         setSavedAutoBlow(d.autoBlowDays ?? 0);
         setAutoBlowDraft(String(d.autoBlowDays ?? 0));
       })
-      .catch(() => setDialsSaved({ winRatePct: 55, riskPct: 50 }));
+      .catch(() => setDialsSaved({ riskPct: 50 }));
   }
 
   useEffect(() => {
@@ -202,11 +199,11 @@ export default function EngineTab() {
       const res = await fetch("/api/admin/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ winRatePct: winDraft, riskPct: riskDraft }),
+        body: JSON.stringify({ riskPct: riskDraft }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error || "Something went wrong.");
-      setDialsSaved({ winRatePct: d.winRatePct, riskPct: d.riskPct });
+      setDialsSaved({ riskPct: d.riskPct });
       setDialsMsg("Saved — applied immediately.");
       load();
     } catch (err) {
@@ -511,13 +508,10 @@ export default function EngineTab() {
       </section>
 
       <section className="panel p-5">
-        <h2 className="font-display text-lg font-semibold">Testing dials</h2>
-        <p className="mt-1 text-xs text-ink-3">Testing only — engineers the paper-settlement engine&apos;s outcomes for end-to-end testing. Nothing here affects any real balance.</p>
-        <div className="mt-4 flex items-center justify-between">
-          <p className="text-[13px] font-medium text-ink">System win rate</p>
-          <span className="tnum text-lg font-semibold text-ink">{winDraft}%</span>
-        </div>
-        <input type="range" min={0} max={100} step={1} value={winDraft} onChange={(e) => setWinDraft(Number(e.target.value))} className="mt-2 w-full accent-mint" />
+        <h2 className="font-display text-lg font-semibold">Testing dial</h2>
+        <p className="mt-1 text-xs text-ink-3">
+          Controls position SIZE only — never the outcome. Every position opens and settles at the real market price; nothing here can force a win or a loss.
+        </p>
         <div className="mt-4 flex items-center justify-between">
           <p className="text-[13px] font-medium text-ink">Risk per trade</p>
           <span className="tnum text-lg font-semibold text-ink">{riskDraft}%</span>
@@ -526,7 +520,7 @@ export default function EngineTab() {
         <div className="mt-4 flex items-center gap-3">
           <button
             onClick={saveDials}
-            disabled={dialsBusy || (winDraft === dialsSaved.winRatePct && riskDraft === dialsSaved.riskPct)}
+            disabled={dialsBusy || riskDraft === dialsSaved.riskPct}
             className="rounded-lg border border-mint/50 bg-mint/10 px-4 py-2 text-sm font-medium text-mint transition-colors disabled:opacity-50"
           >
             {dialsBusy ? "Saving…" : "Save"}
